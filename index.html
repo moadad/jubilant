@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Jood Kids</title>
+  <meta name="description" content="متجر جملة احترافي للأطفال" />
+  <meta name="theme-color" content="#0f172a" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="assets/logo-mark.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <link rel="stylesheet" href="styles.css" />
+  <script defer src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <script type="module" defer src="app.js"></script>
+</head>
+<body>
+  <div class="lux-ambient lux-ambient-a"></div>
+  <div class="lux-ambient lux-ambient-b"></div>
+  <div class="lux-grid"></div>
+  <div id="overlay" class="overlay"></div>
+  <div id="toast" class="toast"></div>
+
+  <header class="site-header">
+    <div class="topline"><div class="shell topline-inner"><span class="top-pill"><i class="fa-solid fa-crown"></i><span>جملة الأطفال</span></span><span class="top-sep"></span><span class="top-note">تشكيلة احترافية مرتبة بالموديل والموسم</span></div></div>
+    <div class="shell header-inner">
+      <button class="brand-reset brand" id="brandTrigger" aria-label="الإدارة">
+        <div class="brand-mark-wrap">
+          <img id="brandLogoImage" class="brand-logo-image hidden" alt="logo" />
+          <div id="brandLogoMark" class="brand-mark">JK</div>
+        </div>
+        <div class="brand-text">
+          <strong id="brandName">Jood Kids</strong>
+          <span id="brandTagline">جملة الأطفال</span>
+        </div>
+      </button>
+
+      <div class="header-actions">
+        <button id="installBtn" class="action-btn hidden"><i class="fa-solid fa-download"></i><span>تثبيت</span></button>
+        <button id="contactBtn" class="action-btn"><i class="fa-solid fa-headset"></i><span>تواصل</span></button>
+        <button id="cartToggle" class="cart-chip">
+          <i class="fa-solid fa-bag-shopping"></i>
+          <span>السلة</span>
+          <strong id="cartCount">0</strong>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero-section">
+      <div class="shell hero-layout">
+        <div class="hero-copy">
+          <div class="hero-kicker" id="heroKicker">Jood Kids</div>
+          <h1 id="heroTitle">تشكيلة الجملة الجديدة</h1>
+          <p id="heroSubtitle">منتجات مرتبة حسب الموديل والموسم مع طلب مباشر وسريع.</p>
+          <div class="hero-cta-row">
+            <button class="primary-btn" id="heroShopBtn">تصفح المنتجات</button>
+            <button class="ghost-btn" id="heroWhatsappBtn"><i class="fa-brands fa-whatsapp"></i><span>واتساب</span></button>
+          </div>
+          <div class="hero-metrics">
+            <article class="metric-card">
+              <span><i class="fa-solid fa-shirt"></i><span>المنتجات</span></span>
+              <strong id="productsCounter">0</strong>
+            </article>
+            <article class="metric-card">
+              <span><i class="fa-solid fa-tags"></i><span>التصنيفات</span></span>
+              <strong id="categoriesCounter">0</strong>
+            </article>
+            <article class="metric-card">
+              <span>المواسم</span>
+              <strong id="seasonsCounter">0</strong>
+            </article>
+          </div>
+        </div>
+
+        <div class="hero-media">
+          <div class="hero-media-card">
+            <img id="heroImage" alt="hero" />
+            <div class="hero-media-fade"></div>
+            <div class="hero-floating-card">
+              <div class="hero-floating-glow"></div>
+              <span id="heroBadge">جملة فقط</span>
+              <strong id="featuredCounter">0 منتجات مثبتة</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="shell brand-ribbon">
+      <article class="ribbon-card"><i class="fa-solid fa-layer-group"></i><div><strong>تصنيفات ذكية</strong><span>حسب الموديل والموسم</span></div></article>
+      <article class="ribbon-card"><i class="fa-solid fa-images"></i><div><strong>عرض كامل</strong><span>تكبير الصور بضغطة واحدة</span></div></article>
+      <article class="ribbon-card"><i class="fa-solid fa-mobile-screen-button"></i><div><strong>PWA</strong><span>قابل للتثبيت على الجوال</span></div></article>
+    </section>
+
+    <section class="shell company-strip" id="companyStrip">
+      <div class="mini-card"><i class="fa-solid fa-phone"></i><span id="companyPhone">—</span></div>
+      <div class="mini-card"><i class="fa-solid fa-location-dot"></i><span id="companyAddress">—</span></div>
+      <a id="factoryMapLink" class="mini-card mini-link" href="#" target="_blank" rel="noopener"><i class="fa-solid fa-industry"></i><span>المصنع</span></a>
+      <a id="shopMapLink" class="mini-card mini-link" href="#" target="_blank" rel="noopener"><i class="fa-solid fa-store"></i><span>المحل</span></a>
+    </section>
+
+    <section class="shell filters-panel">
+      <div class="search-box">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input id="searchInput" type="text" placeholder="بحث بالاسم أو الموديل" />
+      </div>
+      <div class="filter-grid">
+        <div class="field">
+          <label for="categoryFilter">التصنيف</label>
+          <select id="categoryFilter"><option value="all">الكل</option></select>
+        </div>
+        <div class="field">
+          <label for="seasonFilter">الموسم</label>
+          <select id="seasonFilter"><option value="all">الكل</option></select>
+        </div>
+        <div class="field">
+          <label for="sortFilter">الترتيب</label>
+          <select id="sortFilter">
+            <option value="featured">المثبت ثم الأحدث</option>
+            <option value="newest">الأحدث</option>
+            <option value="priceAsc">السعر تصاعدي</option>
+            <option value="priceDesc">السعر تنازلي</option>
+            <option value="modelAsc">الموديل تصاعدي</option>
+          </select>
+        </div>
+      </div>
+      <div class="chips-row" id="seasonChips"></div>
+    </section>
+
+    <section class="shell section-head">
+      <div>
+        <h2><i class="fa-solid fa-shirt"></i><span>المنتجات</span></h2>
+        <p id="visibleCount">0 منتج</p>
+      </div>
+      <div class="section-actions">
+        <button class="ghost-btn" id="scrollFeaturedBtn"><i class="fa-solid fa-thumbtack"></i><span>المثبت</span></button>
+      </div>
+    </section>
+
+    <section class="shell products-grid" id="productsGrid"></section>
+
+    <section class="shell empty-wrap hidden" id="emptyState">
+      <div class="empty-card">
+        <i class="fa-regular fa-folder-open"></i>
+        <h3>لا توجد نتائج مطابقة</h3>
+      </div>
+    </section>
+
+    <section class="shell payments-block">
+      <div class="section-head compact">
+        <div>
+          <h2>طرق الدفع</h2>
+        </div>
+      </div>
+      <div class="payment-icons" id="paymentIcons"></div>
+      <div class="policy-stack">
+        <article class="policy-card">
+          <h3><i class="fa-solid fa-wallet"></i><span>سياسة الدفع</span></h3>
+          <div id="paymentPolicyText" class="policy-text"></div>
+        </article>
+        <article class="policy-card">
+          <h3><i class="fa-solid fa-arrow-rotate-left"></i><span>سياسة الاستبدال والاسترجاع</span></h3>
+          <div id="returnPolicyText" class="policy-text"></div>
+        </article>
+        <article class="policy-card">
+          <h3><i class="fa-solid fa-circle-info"></i><span>تنويه</span></h3>
+          <div id="shippingPolicyText" class="policy-text"></div>
+        </article>
+      </div>
+    </section>
+
+    <footer class="site-footer">
+      <div class="shell footer-inner">
+        <div class="footer-brand">
+          <strong id="footerBrandName">Jood Kids</strong>
+          <p id="companyAbout"></p>
+        </div>
+        <div class="footer-socials">
+          <a id="instagramLink" class="social-btn" href="#" target="_blank" rel="noopener" aria-label="instagram"><i class="fa-brands fa-instagram"></i></a>
+          <a id="facebookLink" class="social-btn" href="#" target="_blank" rel="noopener" aria-label="facebook"><i class="fa-brands fa-facebook-f"></i></a>
+          <a id="telegramLink" class="social-btn" href="#" target="_blank" rel="noopener" aria-label="telegram"><i class="fa-brands fa-telegram"></i></a>
+          <a id="whatsappLink" class="social-btn social-whatsapp" href="#" target="_blank" rel="noopener" aria-label="whatsapp"><i class="fa-brands fa-whatsapp"></i></a>
+        </div>
+      </div>
+    </footer>
+  </main>
+
+  <button id="floatingWhatsApp" class="floating-whatsapp hidden" aria-label="whatsapp">
+    <i class="fa-brands fa-whatsapp"></i>
+  </button>
+
+  <aside id="cartDrawer" class="drawer drawer-left">
+    <div class="drawer-head">
+      <div>
+        <h3>السلة</h3>
+        <span class="muted" id="cartItemsCount">0 قطعة</span>
+      </div>
+      <button class="icon-btn" id="closeCart"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div id="cartItems" class="stack-list"></div>
+    <div class="drawer-summary">
+      <div class="summary-row"><span>الإجمالي</span><strong id="cartTotal">0 ج.م</strong></div>
+      <button class="primary-btn full" id="checkoutBtn">إتمام الطلب</button>
+    </div>
+  </aside>
+
+  <aside id="adminDrawer" class="drawer drawer-right admin-drawer">
+    <div class="drawer-head">
+      <div>
+        <h3>الإدارة</h3>
+      </div>
+      <button class="icon-btn" id="closeAdmin"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+
+    <section id="adminLoginSection" class="auth-box">
+      <div class="grid-2">
+        <div class="field">
+          <label for="adminEmail">البريد الإلكتروني</label>
+          <input id="adminEmail" type="email" placeholder="admin@example.com" />
+        </div>
+        <div class="field">
+          <label for="adminPassword">كلمة المرور</label>
+          <input id="adminPassword" type="password" placeholder="••••••••" />
+        </div>
+      </div>
+      <div class="btn-row">
+        <button id="adminLoginBtn" class="primary-btn">دخول</button>
+        <button id="adminLogoutBtn" class="ghost-btn">خروج</button>
+      </div>
+      <div id="authStatus" class="status-line">غير مسجل</div>
+    </section>
+
+    <section id="adminContent" class="hidden">
+      <div class="admin-tabs" id="adminTabs">
+        <button class="tab-btn active" data-tab="dashboardTab"><i class="fa-solid fa-chart-line"></i><span>الملخص</span></button>
+        <button class="tab-btn" data-tab="appearanceTab"><i class="fa-solid fa-wand-magic-sparkles"></i><span>الواجهة</span></button>
+        <button class="tab-btn" data-tab="companyTab"><i class="fa-solid fa-building"></i><span>الشركة</span></button>
+        <button class="tab-btn" data-tab="categoryTab"><i class="fa-solid fa-tags"></i><span>التصنيفات</span></button>
+        <button class="tab-btn" data-tab="productTab"><i class="fa-solid fa-shirt"></i><span>المنتجات</span></button>
+        <button class="tab-btn" data-tab="ordersTab"><i class="fa-solid fa-bag-shopping"></i><span>الطلبات</span></button>
+        <button class="tab-btn" data-tab="dataTab"><i class="fa-solid fa-database"></i><span>البيانات</span></button>
+      </div>
+
+      <div id="dashboardTab" class="tab-panel active">
+        <article class="panel-card">
+          <h4>لوحة الملخص</h4>
+          <div class="stats-grid">
+            <div class="kpi-card"><span><i class="fa-solid fa-shirt"></i><span>المنتجات</span></span><strong id="adminProductsCount">0</strong></div>
+            <div class="kpi-card"><span><i class="fa-solid fa-bag-shopping"></i><span>الطلبات</span></span><strong id="adminOrdersCount">0</strong></div>
+            <div class="kpi-card"><span><i class="fa-solid fa-tags"></i><span>التصنيفات</span></span><strong id="adminCategoriesCount">0</strong></div>
+            <div class="kpi-card"><span>الإجمالي التقريبي</span><strong id="adminOrdersTotal">0 ج.م</strong></div>
+          </div>
+        </article>
+      </div>
+
+      <div id="appearanceTab" class="tab-panel">
+        <article class="panel-card">
+          <h4>الهوية والواجهة</h4>
+          <div class="grid-2">
+            <div class="field"><label>اسم المتجر</label><input id="companyNameInput" type="text" /></div>
+            <div class="field"><label>السطر الثانوي</label><input id="companyTaglineInput" type="text" /></div>
+            <div class="field"><label>عنوان الواجهة</label><input id="heroTitleInput" type="text" /></div>
+            <div class="field"><label>وصف الواجهة</label><input id="heroSubtitleInput" type="text" /></div>
+            <div class="field"><label>شارة الواجهة</label><input id="heroBadgeInput" type="text" /></div>
+            <div class="field"><label>صورة الغلاف</label><input id="heroImageInput" type="url" placeholder="https://..." /></div>
+            <div class="field"><label>رابط اللوجو</label><input id="logoUrlInput" type="url" placeholder="https://..." /></div>
+            <div class="field"><label>اللون الأساسي</label><input id="accentColorInput" type="color" value="#6d28d9" /></div>
+            <div class="field"><label>اللون الثانوي</label><input id="accentColor2Input" type="color" value="#0f172a" /></div>
+            <div class="field"><label>عدد المنتجات المثبتة</label><input id="featuredLimitInput" type="number" min="0" value="8" /></div>
+            <div class="field"><label>زر التثبيت</label>
+              <select id="installEnabledInput"><option value="true">مفعل</option><option value="false">مخفي</option></select>
+            </div>
+            <div class="field"><label>واتساب عائم</label>
+              <select id="floatingWhatsappInput"><option value="true">مفعل</option><option value="false">مخفي</option></select>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="ghost-btn upload-trigger" data-target-input="heroImageInput"><i class="fa-solid fa-image"></i><span>رفع الغلاف</span></button>
+            <button class="ghost-btn upload-trigger" data-target-input="logoUrlInput"><i class="fa-solid fa-camera"></i><span>رفع اللوجو</span></button>
+            <button id="saveAppearanceBtn" class="primary-btn">حفظ</button>
+          </div>
+        </article>
+      </div>
+
+      <div id="companyTab" class="tab-panel">
+        <article class="panel-card">
+          <h4>بيانات الشركة</h4>
+          <div class="grid-2">
+            <div class="field"><label>هاتف 1</label><input id="companyPhoneInput" type="text" /></div>
+            <div class="field"><label>هاتف 2</label><input id="companyPhone2Input" type="text" /></div>
+            <div class="field"><label>واتساب</label><input id="companyWhatsappInput" type="text" /></div>
+            <div class="field"><label>العنوان</label><input id="companyAddressInput" type="text" /></div>
+            <div class="field"><label>انستجرام</label><input id="companyInstagramInput" type="url" /></div>
+            <div class="field"><label>فيس بوك</label><input id="companyFacebookInput" type="url" /></div>
+            <div class="field"><label>تيلجرام</label><input id="companyTelegramInput" type="url" /></div>
+            <div class="field"><label>موقع المصنع</label><input id="factoryMapInput" type="url" /></div>
+            <div class="field"><label>موقع المحل</label><input id="shopMapInput" type="url" /></div>
+            <div class="field"><label>Cloudinary Upload Preset</label><input id="cloudinaryPresetInput" type="text" /></div>
+            <div class="field full"><label>نبذة مختصرة</label><textarea id="companyAboutInput" rows="3"></textarea></div>
+          </div>
+          <button id="saveCompanyBtn" class="primary-btn">حفظ</button>
+        </article>
+
+        <article class="panel-card">
+          <h4>السياسات وطرق الدفع</h4>
+          <div class="field"><label>سياسة الدفع</label><textarea id="paymentPolicyInput" rows="7"></textarea></div>
+          <div class="field"><label>سياسة الاسترجاع</label><textarea id="returnPolicyInput" rows="8"></textarea></div>
+          <div class="field"><label>التنويه</label><textarea id="shippingPolicyInput" rows="5"></textarea></div>
+          <button id="savePoliciesBtn" class="primary-btn">حفظ</button>
+        </article>
+      </div>
+
+      <div id="categoryTab" class="tab-panel">
+        <article class="panel-card">
+          <h4>المواسم</h4>
+          <div class="field full">
+            <label>المواسم المتاحة</label>
+            <input id="seasonsInput" type="text" placeholder="صيفي, شتوي, خريفي" />
+          </div>
+          <button id="saveSeasonsBtn" class="primary-btn">حفظ المواسم</button>
+        </article>
+        <article class="panel-card">
+          <h4>تصنيفات الموديل</h4>
+          <div id="categoryManagerList" class="stack-list"></div>
+        </article>
+      </div>
+
+      <div id="productTab" class="tab-panel">
+        <article class="panel-card">
+          <h4 id="productFormTitle">إضافة منتج</h4>
+          <div class="grid-2">
+            <div class="field"><label>اسم المنتج</label><input id="productNameInput" type="text" /></div>
+            <div class="field"><label>الموديل</label><input id="productModelInput" type="text" /></div>
+            <div class="field"><label>سعر الجملة</label><input id="productPriceInput" type="number" min="0" step="0.01" /></div>
+            <div class="field"><label>الموسم</label><select id="productSeasonInput"></select></div>
+            <div class="field"><label>المخزون</label><input id="productStockInput" type="number" min="0" step="1" value="0" /></div>
+            <div class="field"><label>المقاسات</label><input id="productSizesInput" type="text" placeholder="6 / 12 / 18" /></div>
+            <div class="field"><label>الحد الأدنى</label><input id="productMinQtyInput" type="number" min="1" step="1" value="1" /></div>
+            <div class="field"><label>شارة إضافية</label><input id="productBadgeInput" type="text" placeholder="جديد" /></div>
+            <div class="field"><label>تثبيت</label><select id="productPinnedInput"><option value="true">نعم</option><option value="false">لا</option></select></div>
+            <div class="field"><label>إظهار</label><select id="productVisibleInput"><option value="true">نعم</option><option value="false">لا</option></select></div>
+            <div class="field full"><label>الوصف</label><textarea id="productDescriptionInput" rows="4"></textarea></div>
+          </div>
+          <div class="field full">
+            <label>روابط الصور</label>
+            <textarea id="productImageUrlsInput" rows="4" placeholder="كل رابط في سطر مستقل"></textarea>
+          </div>
+          <div class="btn-row">
+            <label class="file-btn">
+              <input id="productImagesInput" type="file" accept="image/*" multiple hidden />
+              <span class="ghost-btn"><i class="fa-solid fa-cloud-arrow-up"></i><span>رفع صور</span></span>
+            </label>
+            <button id="saveProductBtn" class="primary-btn">حفظ المنتج</button>
+            <button id="resetProductBtn" class="ghost-btn">إعادة ضبط</button>
+          </div>
+          <div id="uploadStatus" class="status-line"></div>
+          <div id="productImagesPreview" class="preview-grid"></div>
+        </article>
+
+        <article class="panel-card">
+          <div class="panel-top">
+            <h4>إدارة المنتجات</h4>
+            <div class="btn-row">
+              <button id="togglePinnedFilterBtn" class="ghost-btn">المثبت فقط</button>
+            </div>
+          </div>
+          <div id="adminProductsList" class="stack-list"></div>
+        </article>
+      </div>
+
+      <div id="ordersTab" class="tab-panel">
+        <article class="panel-card">
+          <div class="panel-top">
+            <h4><i class="fa-solid fa-bag-shopping"></i><span>الطلبات</span></h4>
+            <div class="btn-row">
+              <button id="exportOrdersBtn" class="ghost-btn"><i class="fa-solid fa-file-export"></i><span>تصدير الطلبات</span></button>
+            </div>
+          </div>
+          <div id="adminOrdersList" class="stack-list"></div>
+        </article>
+      </div>
+
+      <div id="dataTab" class="tab-panel">
+        <article class="panel-card">
+          <h4>استيراد وتصدير</h4>
+          <div class="btn-row wrap">
+            <label class="file-btn">
+              <input id="excelImportInput" type="file" accept=".xlsx,.xls,.csv" hidden />
+              <span class="ghost-btn"><i class="fa-solid fa-file-import"></i><span>استيراد Excel</span></span>
+            </label>
+            <button id="exportProductsBtn" class="ghost-btn"><i class="fa-solid fa-file-export"></i><span>تصدير المنتجات</span></button>
+            <a class="ghost-btn" href="sample-products-template.xlsx" download><i class="fa-solid fa-file-arrow-down"></i><span>قالب Excel</span></a>
+          </div>
+        </article>
+        <article class="panel-card danger">
+          <h4>منطقة الحذف</h4>
+          <div class="btn-row wrap">
+            <button id="deleteProductsBtn" class="danger-btn">حذف المنتجات</button>
+            <button id="deleteOrdersBtn" class="danger-btn">حذف الطلبات</button>
+            <button id="deleteAllDataBtn" class="danger-btn strong">حذف كل البيانات</button>
+          </div>
+        </article>
+      </div>
+    </section>
+  </aside>
+
+  <div id="contactModal" class="modal">
+    <div class="modal-box compact-box">
+      <button class="icon-btn modal-close" data-close="contactModal"><i class="fa-solid fa-xmark"></i></button>
+      <div class="modal-head">
+        <h3>تواصل معنا</h3>
+      </div>
+      <div class="contact-cards">
+        <a id="modalInstagramLink" class="contact-card" href="#" target="_blank" rel="noopener"><i class="fa-brands fa-instagram"></i><span>انستجرام</span></a>
+        <a id="modalFacebookLink" class="contact-card" href="#" target="_blank" rel="noopener"><i class="fa-brands fa-facebook-f"></i><span>فيس بوك</span></a>
+        <a id="modalTelegramLink" class="contact-card" href="#" target="_blank" rel="noopener"><i class="fa-brands fa-telegram"></i><span>تيلجرام</span></a>
+        <a id="modalWhatsappLink" class="contact-card whatsapp" href="#" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp"></i><span>واتساب</span></a>
+      </div>
+    </div>
+  </div>
+
+  <div id="imageModal" class="modal">
+    <div class="modal-box image-box">
+      <button class="icon-btn modal-close" data-close="imageModal"><i class="fa-solid fa-xmark"></i></button>
+      <button class="gallery-nav prev" id="galleryPrev"><i class="fa-solid fa-chevron-right"></i></button>
+      <button class="gallery-nav next" id="galleryNext"><i class="fa-solid fa-chevron-left"></i></button>
+      <img id="modalImage" alt="image" />
+      <div class="thumb-strip" id="galleryThumbs"></div>
+    </div>
+  </div>
+
+  <div id="checkoutModal" class="modal">
+    <div class="modal-box">
+      <button class="icon-btn modal-close" data-close="checkoutModal"><i class="fa-solid fa-xmark"></i></button>
+      <div class="modal-head">
+        <h3>إتمام الطلب</h3>
+      </div>
+      <div class="grid-2">
+        <div class="field"><label>اسم العميل</label><input id="customerNameInput" type="text" /></div>
+        <div class="field"><label>الهاتف</label><input id="customerPhoneInput" type="text" /></div>
+        <div class="field"><label>المدينة</label><input id="customerCityInput" type="text" /></div>
+        <div class="field"><label>العنوان</label><input id="customerAddressInput" type="text" /></div>
+        <div class="field">
+          <label>طريقة الدفع</label>
+          <select id="paymentMethodInput">
+            <option>نقدا من خلال أحد فروعنا</option>
+            <option>تحويلات بنكية</option>
+            <option>انستا باي</option>
+            <option>فودافون كاش</option>
+            <option>اتصالات كاش</option>
+            <option>أورنج كاش</option>
+            <option>كاش</option>
+            <option>بوليصة شحن</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>طريقة الاستلام</label>
+          <select id="shippingMethodInput">
+            <option>استلام من الفرع</option>
+            <option>شحن إلى العميل</option>
+            <option>بوليصة شحن</option>
+          </select>
+        </div>
+        <div class="field full"><label>ملاحظات</label><textarea id="customerNotesInput" rows="3"></textarea></div>
+      </div>
+      <button id="submitOrderBtn" class="primary-btn full">إرسال الطلب</button>
+    </div>
+  </div>
+
+  <input id="singleAssetUploader" type="file" accept="image/*" hidden />
+</body>
+</html>
