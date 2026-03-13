@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://moadad.github.io/jubilant/sitemap.xml
+Sitemap: https://moadad.github.io/jubilant/sitemap.txt
