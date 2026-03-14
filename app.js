@@ -12,10 +12,11 @@ const firebaseConfig = {
 };
 
 const ADMIN_UID = 'dZS7jUaB43aCL5Km3zr5V4LZuMr1';
+const ADMIN_EMAILS = ['admin@sestem.local', 'admin@system.local'];
 const CLOUDINARY_CLOUD_NAME = 'dthtzvypx';
 const CART_STORAGE_KEY = 'joodkids_cart_wholesale_piece_v3_fast';
 const PRODUCT_PAGE_SIZE = 24;
-const APP_SW_VERSION = 'joodkids-fast-secure-v20';
+const APP_SW_VERSION = 'joodkids-fast-secure-v21';
 const SITE_URL = 'https://moadad.github.io/jubilant/';
 const SITE_NAME_AR = 'جود كيدز';
 const SITE_NAME_EN = 'Jood Kids';
@@ -1413,14 +1414,55 @@ function renderAdminOrders() {
   });
 }
 
-async function adminLogin() {
+function normalizeAdminEmail(value = '') {
+  return String(value || '').trim().toLowerCase();
+}
+
+function isAllowedAdminUser(user) {
+  if (!user) return false;
+  const email = normalizeAdminEmail(user.email || '');
+  return user.uid === ADMIN_UID || ADMIN_EMAILS.includes(email);
+}
+
+async function ensureAdminSession(options = {}) {
+  const { silent = false } = options;
+  const user = auth.currentUser;
+  if (!isAllowedAdminUser(user)) {
+    state.authUser = user || null;
+    state.isAdmin = false;
+    el.authStatus.textContent = user ? (user.email || user.uid || 'غير مسجل') : 'غير مسجل';
+    el.adminContent.classList.add('hidden');
+    subscribeOrdersIfAdmin();
+    if (!silent) {
+      showToast('سجل الدخول بحساب الأدمن الصحيح ثم أعد المحاولة');
+      openDrawer('admin');
+    }
+    return false;
+  }
   try {
-    await signInWithEmailAndPassword(auth, el.adminEmail.value.trim(), el.adminPassword.value);
-    const user = auth.currentUser;
-    if (!user || user.uid !== ADMIN_UID) {
+    await user.getIdToken(true);
+  } catch (error) {
+    console.warn('Token refresh failed', error);
+  }
+  state.authUser = user;
+  state.isAdmin = true;
+  el.authStatus.textContent = user.email || user.uid || 'غير مسجل';
+  el.adminContent.classList.remove('hidden');
+  subscribeOrdersIfAdmin();
+  return true;
+}
+
+async function adminLogin() {
+  const email = el.adminEmail.value.trim();
+  const password = el.adminPassword.value;
+  if (!email || !password) return showToast('أدخل البريد وكلمة المرور');
+  try {
+    const { user } = await signInWithEmailAndPassword(auth, email, password);
+    if (!isAllowedAdminUser(user)) {
       await signOut(auth).catch(() => {});
       return showToast('هذا الحساب ليس أدمن');
     }
+    await ensureAdminSession({ silent: true });
     showToast('تم تسجيل الدخول');
   } catch (error) {
     console.error(error);
@@ -1439,7 +1481,7 @@ async function adminLogout() {
 }
 
 function handleAuthChange(user) {
-  if (user && user.uid !== ADMIN_UID) {
+  if (user && !isAllowedAdminUser(user)) {
     state.authUser = null;
     state.isAdmin = false;
     el.authStatus.textContent = 'غير مصرح';
@@ -1450,14 +1492,14 @@ function handleAuthChange(user) {
     return;
   }
   state.authUser = user;
-  state.isAdmin = Boolean(user && user.uid === ADMIN_UID);
+  state.isAdmin = Boolean(user && isAllowedAdminUser(user));
   el.authStatus.textContent = user ? (user.email || user.uid) : 'غير مسجل';
   el.adminContent.classList.toggle('hidden', !state.isAdmin);
   subscribeOrdersIfAdmin();
 }
 
 async function saveAppearance() {
-  if (!guardAdmin()) return;
+  if (!(await ensureAdminSession())) return;
   try {
     await Promise.all([
       setDoc(doc(db, 'company', 'main'), { companyName: el.companyNameInput.value.trim(), tagline: el.companyTaglineInput.value.trim(), updatedAt: serverTimestamp() }, { merge: true }),
@@ -1484,7 +1526,7 @@ async function saveAppearance() {
 }
 
 async function saveCompanyData() {
-  if (!guardAdmin()) return;
+  if (!(await ensureAdminSession())) return;
   try {
     await setDoc(doc(db, 'company', 'main'), {
       companyName: el.companyNameInput.value.trim(),
@@ -1510,7 +1552,7 @@ async function saveCompanyData() {
 }
 
 async function savePolicies() {
-  if (!guardAdmin()) return;
+  if (!(await ensureAdminSession())) return;
   try {
     await Promise.all([
       setDoc(doc(db, 'payments', 'default'), { policyText: el.paymentPolicyInput.value.trim(), methods: DEFAULT_PAYMENT_METHODS, updatedAt: serverTimestamp() }, { merge: true }),
@@ -1531,7 +1573,7 @@ async function savePolicies() {
 }
 
 async function saveSeasons() {
-  if (!guardAdmin()) return;
+  if (!(await ensureAdminSession())) return;
   const seasons = parseCommaList(el.seasonsInput.value);
   try {
     await setDoc(doc(db, 'settings', 'store'), { seasons, updatedAt: serverTimestamp() }, { merge: true });
@@ -1546,7 +1588,7 @@ async function saveSeasons() {
 }
 
 async function saveCodeCategoryLabel(code, label) {
-  if (!guardAdmin()) return;
+  if (!(await ensureAdminSession())) return;
   const cleanCode = String(code || '').trim();
   const cleanLabel = String(label || '').trim();
   const categoryLabels = { ...(state.storeSettings?.codeCategoryLabels || {}) };
@@ -1588,7 +1630,7 @@ function syncDraftImagesFromTextarea() {
 }
 
 async function handleProductFileUpload(event) {
-  if (!guardAdmin()) return;
+  if (!(await ensureAdminSession())) return;
   const files = [...(event.target.files || [])];
   if (!files.length) return;
   try {
@@ -1608,7 +1650,7 @@ async function handleProductFileUpload(event) {
 }
 
 async function handleSingleAssetUpload(event) {
-  if (!guardAdmin()) return;
+  if (!(await ensureAdminSession())) return;
   const file = event.target.files?.[0];
   if (!file || !state.assetTargetInputId) return;
   try {
@@ -1658,7 +1700,7 @@ function getFriendlyUploadError(error) {
 }
 
 async function saveProduct() {
-  if (!guardAdmin()) return;
+  if (!(await ensureAdminSession())) return;
   const name = el.productNameInput.value.trim();
   const model = el.productModelInput.value.trim();
   const rawPricePiece = el.productPriceInput.value.trim();
@@ -1756,7 +1798,7 @@ function renderProductPreview() {
 }
 
 async function togglePinned(product) {
-  if (!guardAdmin()) return;
+  if (!(await ensureAdminSession())) return;
   try {
     await updateDoc(doc(db, 'products', product.id), { pinned: !product.pinned, updatedAt: serverTimestamp() });
   } catch (error) {
@@ -1766,7 +1808,7 @@ async function togglePinned(product) {
 }
 
 async function deleteProduct(productId) {
-  if (!guardAdmin()) return;
+  if (!(await ensureAdminSession())) return;
   if (!confirm('حذف هذا المنتج؟')) return;
   try {
     await deleteDoc(doc(db, 'products', productId));
@@ -1863,7 +1905,7 @@ async function submitOrder() {
 }
 
 async function updateOrderStatus(orderId, status) {
-  if (!guardAdmin()) return;
+  if (!(await ensureAdminSession())) return;
   try {
     await updateDoc(doc(db, 'orders', orderId), { status, updatedAt: serverTimestamp() });
     showToast('تم تحديث الطلب');
@@ -1874,7 +1916,7 @@ async function updateOrderStatus(orderId, status) {
 }
 
 async function deleteOrder(orderId) {
-  if (!guardAdmin()) return;
+  if (!(await ensureAdminSession())) return;
   if (!confirm('حذف هذا الطلب؟')) return;
   try {
     await deleteDoc(doc(db, 'orders', orderId));
@@ -1887,11 +1929,30 @@ async function deleteOrder(orderId) {
 
 function exportProductsExcel() {
   const rows = state.products.map((product) => ({ name: product.name || '', model: product.model || '', pricePiece: getPiecePrice(product), priceWholesale: getSeriesBasePrice(product), discountPercent: toNumber(product.discountPercent || 0), season: product.season || '', sizes: product.sizes || '', seriesQtyText: getSeriesQtyText(product), badgeText: product.badgeText || '', pinned: Boolean(product.pinned), visible: product.visible !== false, description: product.description || '', imageUrls: normalizeImageUrls(product.imageUrls).join('\n') }));
-  exportSheet(rows, 'products');
+  exportWorkbook([{ name: 'products', rows }], 'products');
 }
 
 function exportOrdersExcel() {
-  const rows = state.orders.flatMap((order) => {
+  const summaryRows = state.orders.map((order) => {
+    const totals = getOrderTotals(order);
+    return {
+      orderNo: getOrderReference(order),
+      orderDate: formatOrderDate(order),
+      customerName: order.customerName || '',
+      customerPhone: order.customerPhone || '',
+      city: order.city || '',
+      address: order.address || '',
+      paymentMethod: order.paymentMethod || '',
+      shippingMethod: order.shippingMethod || '',
+      status: order.status || '',
+      notes: order.notes || '',
+      modelsCount: totals.models,
+      seriesCount: totals.series,
+      piecesCount: totals.pieces,
+      orderTotal: totals.total,
+    };
+  });
+  const itemRows = state.orders.flatMap((order) => {
     const totals = getOrderTotals(order);
     return (order.items || []).map((item, index) => ({
       orderNo: getOrderReference(order),
@@ -1903,33 +1964,51 @@ function exportOrdersExcel() {
       paymentMethod: order.paymentMethod || '',
       shippingMethod: order.shippingMethod || '',
       status: order.status || '',
+      notes: order.notes || '',
       lineNo: index + 1,
       model: item.model || '',
       productName: resolveInvoiceProductName(item),
       seriesCount: getSeriesCount(item),
       pieceQty: getPieceQuantity(item),
+      piecesPerSeries: getPiecesPerSeries(item),
+      seriesQtyText: getSeriesQtyText(item),
       seriesValue: getSeriesValue(item),
       lineTotal: getLineTotal(item),
+      orderSeriesTotal: totals.series,
+      orderPiecesTotal: totals.pieces,
       orderTotal: totals.total,
     }));
   });
-  exportSheet(rows, 'orders');
+  exportWorkbook([
+    { name: 'orders_summary', rows: summaryRows },
+    { name: 'order_items', rows: itemRows },
+  ], 'orders');
 }
 
-function exportSheet(rows, filename) {
+function exportWorkbook(sheets, filename) {
   if (window.XLSX) {
     const workbook = XLSX.utils.book_new();
-    const sheet = XLSX.utils.json_to_sheet(rows.length ? rows : [{ info: 'لا توجد بيانات' }]);
-    XLSX.utils.book_append_sheet(workbook, sheet, 'data');
+    sheets.forEach((entry, index) => {
+      const safeName = sanitizeSheetName(entry?.name || `sheet_${index + 1}`);
+      const rows = Array.isArray(entry?.rows) && entry.rows.length ? entry.rows : [{ info: 'لا توجد بيانات' }];
+      const sheet = XLSX.utils.json_to_sheet(rows);
+      XLSX.utils.book_append_sheet(workbook, sheet, safeName);
+    });
     XLSX.writeFile(workbook, `${filename}.xlsx`);
     return;
   }
+  const firstSheet = Array.isArray(sheets) ? sheets[0] : null;
+  const rows = Array.isArray(firstSheet?.rows) ? firstSheet.rows : [];
   const csv = convertRowsToCsv(rows);
   downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), `${filename}.csv`);
 }
 
+function sanitizeSheetName(value = '') {
+  return String(value || 'sheet').replace(/[\/?*\[\]:]/g, '_').slice(0, 31) || 'sheet';
+}
+
 async function importProductsExcel(event) {
-  if (!guardAdmin()) return;
+  if (!(await ensureAdminSession())) return;
   const file = event.target.files?.[0];
   if (!file) return;
   try {
@@ -1977,7 +2056,7 @@ async function importProductsExcel(event) {
 }
 
 async function deleteCollectionDocs(collectionName, confirmText) {
-  if (!guardAdmin()) return;
+  if (!(await ensureAdminSession())) return;
   const answer = prompt(`للتأكيد ${confirmText}`);
   if (answer !== confirmText) return;
   try {
@@ -1993,7 +2072,7 @@ async function deleteCollectionDocs(collectionName, confirmText) {
 }
 
 async function deleteAllData() {
-  if (!guardAdmin()) return;
+  if (!(await ensureAdminSession())) return;
   const answer = prompt('للتأكيد النهائي اكتب حذف كل البيانات');
   if (answer !== 'حذف كل البيانات') return;
   try {
@@ -2177,7 +2256,7 @@ function getActionErrorMessage(error, fallback = 'تعذر تنفيذ العمل
   const code = String(error?.code || '').trim();
   const message = String(error?.message || '').trim();
   if (code.includes('permission-denied') || message.includes('Missing or insufficient permissions')) {
-    return 'لا توجد صلاحية للحفظ. تأكد من الدخول بحساب الأدمن الصحيح ثم أعد المحاولة';
+    return 'لا توجد صلاحية للحفظ. تم تحديث النظام لقراءة حساب الأدمن بالبريد أو UID. إذا استمرت الرسالة فحدّث قواعد Firestore من الملف المرفق ثم أعد تسجيل الدخول';
   }
   if (code.includes('unavailable')) return 'تعذر الاتصال بقاعدة البيانات الآن. أعد المحاولة بعد قليل';
   if (code.includes('failed-precondition')) return 'قاعدة البيانات تحتاج إلى الإعداد المطلوب داخل Firebase ثم إعادة المحاولة';
@@ -2883,7 +2962,7 @@ function loadLocalJSON(key, fallback) { try { return JSON.parse(localStorage.get
 const saveLocalJSON = (key, value) => localStorage.setItem(key, JSON.stringify(value));
 function debounce(fn, wait = 120) { let timer = 0; return (...args) => { clearTimeout(timer); timer = window.setTimeout(() => fn(...args), wait); }; }
 function showToast(message) { el.toast.textContent = message; el.toast.classList.add('show'); clearTimeout(showToast.timer); showToast.timer = setTimeout(() => el.toast.classList.remove('show'), 2600); }
-function guardAdmin() { if (state.isAdmin) return true; showToast('سجل الدخول أولاً'); openDrawer('admin'); return false; }
+function guardAdmin() { if (state.isAdmin || isAllowedAdminUser(auth.currentUser)) return true; showToast('سجل الدخول أولاً'); openDrawer('admin'); return false; }
 async function readExcelRows(file) { if (!window.XLSX) throw new Error('SheetJS not loaded'); const buffer = await file.arrayBuffer(); const workbook = XLSX.read(buffer, { type: 'array' }); return XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: '' }); }
 function convertRowsToCsv(rows) { if (!rows.length) return 'info\nلا توجد بيانات'; const headers = [...new Set(rows.flatMap((row) => Object.keys(row)))]; return [headers.join(','), ...rows.map((row) => headers.map((key) => escapeCsv(row[key])).join(','))].join('\n'); }
 function escapeCsv(value) { const text = String(value ?? ''); return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text; }

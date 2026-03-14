@@ -4,7 +4,11 @@ service cloud.firestore {
 
     function isAdmin() {
       return request.auth != null
-        && request.auth.uid == "dZS7jUaB43aCL5Km3zr5V4LZuMr1";
+        && (
+          request.auth.uid == "dZS7jUaB43aCL5Km3zr5V4LZuMr1"
+          || request.auth.token.email == "admin@sestem.local"
+          || request.auth.token.email == "admin@system.local"
+        );
     }
 
     function nonEmptyString(v) {

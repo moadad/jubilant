@@ -3,6 +3,7 @@
 1. ارفع الملفات إلى GitHub.
 2. فعّل GitHub Pages من المستودع.
 3. في Firebase فعّل Authentication بالبريد وكلمة المرور وطبّق قواعد Firestore من الملف المرفق.
+   - القواعد الجديدة تسمح للأدمن عبر UID أو عبر البريد admin@sestem.local / admin@system.local.
 4. في Cloudinary:
    - Cloud Name: dthtzvypx
    - Upload Preset: Joodkids
