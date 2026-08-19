@@ -6,7 +6,7 @@
   <title>جود كيدز | ملابس أطفال وحديثي الولادة</title>
   <meta name="description" content="جود كيدز لملابس الأطفال وحديثي الولادة. موديلات مميزة، صور المنتجات، وطرق التواصل والطلب." />
   <meta name="robots" content="index,follow" />
-  <meta name="theme-color" content="#7c3aed" />
+  <meta name="theme-color" content="#f7f4ee" />
   <meta name="application-name" content="جود كيدز" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -106,27 +106,34 @@
         <i class="fa-solid fa-bars"></i>
       </button>
 
-      <button id="brandTrigger" class="brand-btn" aria-label="الإدارة">
+      <button id="brandTrigger" class="brand-btn" aria-label="العودة إلى الرئيسية">
         <div class="brand-mark-wrap">
           <img id="brandLogoImage" class="brand-logo-image hidden" alt="logo" />
           <div id="brandLogoMark" class="brand-mark">JK</div>
         </div>
         <div class="brand-copy">
           <strong id="brandName">Jood Kids</strong>
-          <span id="brandTagline">جملة الأطفال</span>
+          <span id="brandTagline">ملابس أطفال بالجملة</span>
         </div>
       </button>
 
+      <nav class="desktop-nav" aria-label="التنقل الرئيسي">
+        <button id="navHomeBtn" type="button" class="desktop-nav-link active">الرئيسية</button>
+        <button id="navCatalogBtn" type="button" class="desktop-nav-link">الكتالوج</button>
+        <button id="navOffersBtn" type="button" class="desktop-nav-link">العروض</button>
+        <button id="navContactBtn" type="button" class="desktop-nav-link">تواصل معنا</button>
+      </nav>
+
       <div class="header-tools">
         <button id="installBtn" class="soft-pill hidden"><i class="fa-solid fa-download"></i><span>تثبيت</span></button>
-        <button id="cartToggle" class="cart-pill">
+        <button id="cartToggle" class="cart-pill" aria-label="فتح السلة">
           <i class="fa-solid fa-bag-shopping"></i>
+          <span class="cart-label">السلة</span>
           <strong id="cartCount">0</strong>
         </button>
       </div>
     </div>
   </header>
-  </div>
 
   <aside id="menuDrawer" class="drawer drawer-right menu-drawer">
     <div class="drawer-head">
@@ -134,6 +141,15 @@
         <h3>القائمة</h3>
       </div>
       <button id="closeMenu" class="icon-btn"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+
+    <div class="menu-section menu-primary-section">
+      <div class="menu-primary-grid">
+        <button id="menuHomeBtn" class="menu-main-link"><i class="fa-solid fa-house"></i><span>الرئيسية</span></button>
+        <button id="menuCatalogBtn" class="menu-main-link"><i class="fa-solid fa-shirt"></i><span>الكتالوج</span></button>
+        <button id="menuOffersBtn" class="menu-main-link menu-offers-main"><i class="fa-solid fa-tags"></i><span>العروض</span><b id="menuOffersCount" class="menu-count-badge">0</b></button>
+        <button id="menuContactBtn" class="menu-main-link"><i class="fa-solid fa-headset"></i><span>تواصل معنا</span></button>
+      </div>
     </div>
 
     <div class="menu-section">
@@ -147,9 +163,7 @@
     </div>
 
     <div class="menu-section menu-links">
-      <button id="menuOffersBtn" class="menu-link-btn"><i class="fa-solid fa-badge-percent"></i><span>المنتجات التي عليها عروض</span></button>
       <button id="menuTrackOrderBtn" class="menu-link-btn"><i class="fa-solid fa-truck-fast"></i><span>متابعة الطلبية</span></button>
-      <button id="menuContactBtn" class="menu-link-btn"><i class="fa-solid fa-headset"></i><span>تواصل معنا</span></button>
       <button id="menuNoticeBtn" class="menu-link-btn"><i class="fa-solid fa-bell"></i><span>التنويه</span></button>
       <button id="menuPaymentBtn" class="menu-link-btn"><i class="fa-solid fa-wallet"></i><span>سياسة الدفع</span></button>
       <button id="menuReturnBtn" class="menu-link-btn"><i class="fa-solid fa-arrow-rotate-left"></i><span>سياسة الاستبدال والاسترجاع</span></button>
@@ -159,9 +173,9 @@
   </aside>
 
   <main id="siteContent">
-    <section class="shell intro-wrap">
+    <section class="shell intro-wrap" id="homeSection">
       <div class="intro-card premium-hero-card">
-        <div class="hero-layout hero-layout--single">
+        <div class="hero-layout hero-layout--store">
           <div class="hero-main-column">
             <div class="intro-topline">
               <span class="intro-dot"></span>
@@ -169,17 +183,40 @@
             </div>
             <div class="intro-copy">
               <h1 id="heroTitle">التشكيلة الجديدة</h1>
-              <p id="heroSubtitle">منتجات الجملة مرتبة حسب التصنيف والموسم.</p>
+              <p id="heroSubtitle">اختيار واضح وسريع للموديلات المتاحة.</p>
             </div>
-            <div class="intro-meta">
-              <div class="meta-card"><span>المنتجات</span><strong id="productsCounter">0</strong></div>
-              <div class="meta-card"><span>التصنيفات</span><strong id="categoriesCounter">0</strong></div>
-              <div class="meta-card"><span>المواسم</span><strong id="seasonsCounter">0</strong></div>
+            <div class="hero-actions">
+              <button id="heroShopBtn" type="button" class="primary-btn hero-primary-btn"><i class="fa-solid fa-shirt"></i><span>تصفح الكتالوج</span></button>
+              <button id="heroWhatsappBtn" type="button" class="ghost-btn hero-secondary-btn"><i class="fa-brands fa-whatsapp"></i><span>تواصل واتساب</span></button>
+            </div>
+          </div>
+          <div id="heroShowcase" class="hero-showcase" aria-label="أحدث الموديلات">
+            <div class="hero-showcase-main hero-showcase-placeholder"><i class="fa-solid fa-shirt"></i></div>
+            <div class="hero-showcase-side">
+              <div class="hero-showcase-small hero-showcase-placeholder"><i class="fa-solid fa-shirt"></i></div>
+              <div class="hero-showcase-small hero-showcase-placeholder"><i class="fa-solid fa-shirt"></i></div>
             </div>
           </div>
         </div>
       </div>
     </section>
+
+    <section id="offersSection" class="shell home-offers-section hidden" aria-labelledby="offersSectionTitle">
+      <div class="offers-section-head">
+        <div>
+          <span class="offers-kicker"><i class="fa-solid fa-bolt"></i> عروض مميزة</span>
+          <h2 id="offersSectionTitle">العروض الحالية</h2>
+        </div>
+        <button id="viewAllOffersBtn" type="button" class="offers-view-all"><span>عرض كل العروض</span><i class="fa-solid fa-arrow-left"></i></button>
+      </div>
+      <div id="offersRail" class="offers-rail" aria-live="polite"></div>
+    </section>
+
+    <div class="hidden" aria-hidden="true">
+      <span id="productsCounter">0</span>
+      <span id="categoriesCounter">0</span>
+      <span id="seasonsCounter">0</span>
+    </div>
 
     <section class="shell catalog-flow-wrap" id="catalogFlowStage">
       <div id="catalogFlow" class="catalog-flow"></div>

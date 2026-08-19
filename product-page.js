@@ -13,7 +13,7 @@ const firebaseConfig = {
 const APP_ROOT_URL = new URL('./', window.location.href);
 const SITE_URL = APP_ROOT_URL.href;
 const DEFAULT_BRAND = 'جود كيدز';
-const DEFAULT_TAGLINE = 'جملة الأطفال';
+const DEFAULT_TAGLINE = 'ملابس أطفال بالجملة';
 const CART_STORAGE_KEY = 'joodkids_cart_wholesale_piece_v3_fast';
 const OPEN_CART_FLAG_KEY = 'joodkids_open_cart_after_nav';
 

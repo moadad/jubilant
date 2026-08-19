@@ -16,12 +16,13 @@ const ADMIN_EMAILS = ['admin@sestem.local', 'admin@system.local'];
 const CLOUDINARY_CLOUD_NAME = 'dthtzvypx';
 const CART_STORAGE_KEY = 'joodkids_cart_wholesale_piece_v3_fast';
 const PRODUCT_PAGE_SIZE = 24;
-const APP_SW_VERSION = 'joodkids-fast-secure-v22';
+const APP_SW_VERSION = 'joodkids-premium-v32';
 const APP_ROOT_URL = new URL('./', window.location.href);
 const SITE_URL = APP_ROOT_URL.href;
 const OPEN_CART_FLAG_KEY = 'joodkids_open_cart_after_nav';
 const SITE_NAME_AR = 'جود كيدز';
 const SITE_NAME_EN = 'Jood Kids';
+const PUBLIC_TRACKING_ENABLED = false;
 
 const DEFAULT_PAYMENT_POLICY = `طرق الدفع
 1- نقدا من خلال أحد فروعنا
@@ -57,13 +58,13 @@ const DEFAULT_PAYMENT_METHODS = [
 
 const DEFAULT_STOREFRONT = {
   companyName: 'Jood Kids',
-  tagline: 'جملة الأطفال',
+  tagline: 'ملابس أطفال بالجملة',
   heroTitle: 'التشكيلة الجديدة',
-  heroSubtitle: 'منتجات الجملة مرتبة حسب التصنيف والموسم.',
+  heroSubtitle: 'اختيار واضح وسريع للموديلات المتاحة.',
   heroBadge: 'جملة فقط',
   logoUrl: '',
-  accentColor: '#7c3aed',
-  accentColor2: '#2563eb',
+  accentColor: '#b48a4a',
+  accentColor2: '#1f2937',
   featuredLimit: 8,
   installEnabled: true,
   floatingWhatsappEnabled: true,
@@ -132,6 +133,19 @@ const el = {
   cartDrawer: id('cartDrawer'),
   adminDrawer: id('adminDrawer'),
   brandTrigger: id('brandTrigger'),
+  navHomeBtn: id('navHomeBtn'),
+  navCatalogBtn: id('navCatalogBtn'),
+  navOffersBtn: id('navOffersBtn'),
+  navContactBtn: id('navContactBtn'),
+  menuHomeBtn: id('menuHomeBtn'),
+  menuCatalogBtn: id('menuCatalogBtn'),
+  menuOffersCount: id('menuOffersCount'),
+  offersSection: id('offersSection'),
+  offersRail: id('offersRail'),
+  viewAllOffersBtn: id('viewAllOffersBtn'),
+  heroShopBtn: id('heroShopBtn'),
+  heroWhatsappBtn: id('heroWhatsappBtn'),
+  heroShowcase: id('heroShowcase'),
   brandName: id('brandName'),
   brandTagline: id('brandTagline'),
   footerBrandName: id('footerBrandName'),
@@ -332,13 +346,23 @@ function boot() {
   onAuthStateChanged(auth, handleAuthChange);
   setupInstallPrompt();
   registerServiceWorker();
+  openPrivateAdminRoute();
 }
 
 function bindUI() {
   const debouncedSearch = debounce(() => { state.filter.search = el.searchInput.value.trim().toLowerCase(); resetRenderedProducts(); applyFilters(); }, 120);
   el.menuToggle.addEventListener('click', () => openDrawer('menu'));
   el.closeMenu.addEventListener('click', closeDrawers);
-  el.brandTrigger.addEventListener('click', () => openDrawer('admin'));
+  el.brandTrigger.addEventListener('click', () => {
+    closeDrawers();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+  el.navHomeBtn?.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+  el.navCatalogBtn?.addEventListener('click', () => el.catalogFlowStage?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  el.navOffersBtn?.addEventListener('click', openOffersExperience);
+  el.navContactBtn?.addEventListener('click', () => openModal('contactModal'));
+  el.heroShopBtn?.addEventListener('click', () => el.catalogFlowStage?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  el.heroWhatsappBtn?.addEventListener('click', openWhatsAppDirect);
   el.cartToggle.addEventListener('click', () => openDrawer('cart'));
   el.closeCart.addEventListener('click', closeDrawers);
   el.closeAdmin.addEventListener('click', closeDrawers);
@@ -352,24 +376,16 @@ function bindUI() {
   el.overlay.addEventListener('click', closeDrawers);
   window.addEventListener('hashchange', handleInitialCartRoute);
   el.contactBtn.addEventListener('click', () => openModal('contactModal'));
+  el.menuHomeBtn?.addEventListener('click', () => { closeDrawers(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+  el.menuCatalogBtn?.addEventListener('click', () => { closeDrawers(); el.catalogFlowStage?.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+  el.viewAllOffersBtn?.addEventListener('click', () => activateOffersView({ closeAfter: true }));
   el.menuTrackOrderBtn?.addEventListener('click', () => { closeDrawers(); openModal('trackOrderModal'); queueMicrotask(() => el.trackOrderInput?.focus()); });
   el.menuContactBtn.addEventListener('click', () => { closeDrawers(); openModal('contactModal'); });
   el.menuNoticeBtn.addEventListener('click', () => openPolicy('التنويه', state.storeSettings.shippingPolicy || DEFAULT_SHIPPING_POLICY));
   el.menuPaymentBtn.addEventListener('click', () => openPolicy('سياسة الدفع', state.payments.policyText || DEFAULT_PAYMENT_POLICY));
   el.menuReturnBtn.addEventListener('click', () => openPolicy('سياسة الاستبدال والاسترجاع', state.storeSettings.returnPolicy || DEFAULT_RETURN_POLICY));
   el.menuTermsBtn.addEventListener('click', () => openPolicy('الشروط', state.storeSettings.termsPolicy || DEFAULT_TERMS_POLICY));
-  el.menuOffersBtn.addEventListener('click', () => {
-    if (state.catalog.step !== 'products') {
-      state.catalog.step = 'products';
-      state.filter.season = state.catalog.selectedSeason || 'all';
-      state.filter.category = state.catalog.selectedCategory || 'all';
-    }
-    state.filter.offersOnly = !state.filter.offersOnly;
-    resetRenderedProducts();
-    applyFilters();
-    closeDrawers();
-    scrollProductsTop();
-  });
+  el.menuOffersBtn.addEventListener('click', openOffersExperience);
   el.installBtn.addEventListener('click', installPwa);
   el.menuInstallBtn.addEventListener('click', installPwa);
   el.searchInput.addEventListener('input', debouncedSearch);
@@ -425,8 +441,8 @@ function bindUI() {
   el.exportProductsBtn.addEventListener('click', exportProductsExcel);
   el.exportOrdersBtn.addEventListener('click', exportOrdersExcel);
   el.excelImportInput.addEventListener('change', importProductsExcel);
-  el.deleteProductsBtn.addEventListener('click', () => deleteCollectionDocs('products', 'اكتب حذف المنتجات'));
-  el.deleteOrdersBtn.addEventListener('click', () => deleteCollectionDocs('orders', 'اكتب حذف الطلبات'));
+  el.deleteProductsBtn.addEventListener('click', () => deleteCollectionDocs('products', 'حذف المنتجات'));
+  el.deleteOrdersBtn.addEventListener('click', () => deleteCollectionDocs('orders', 'حذف الطلبات'));
   el.deleteAllDataBtn.addEventListener('click', deleteAllData);
   el.togglePinnedFilterBtn.addEventListener('click', togglePinnedAdminFilter);
   el.galleryPrev.addEventListener('click', () => changeGallery(-1));
@@ -502,6 +518,12 @@ function subscribeData() {
   }, console.error);
   onSnapshot(doc(db, 'settings', 'storefront'), (entry) => {
     state.storefront = { ...DEFAULT_STOREFRONT, ...(entry.exists() ? entry.data() : {}) };
+    const legacyPrimary = String(state.storefront.accentColor || '').toLowerCase();
+    const legacySecondary = String(state.storefront.accentColor2 || '').toLowerCase();
+    if (legacyPrimary === '#7c3aed' && legacySecondary === '#2563eb') {
+      state.storefront.accentColor = DEFAULT_STOREFRONT.accentColor;
+      state.storefront.accentColor2 = DEFAULT_STOREFRONT.accentColor2;
+    }
     applyTheme();
     scheduleRenderEverything();
   }, console.error);
@@ -610,8 +632,104 @@ function renderStorefront() {
   el.installBtn.classList.toggle('hidden', !showInstall);
   el.menuInstallBtn.classList.toggle('hidden', !showInstall);
   renderPaymentIcons();
+  renderHeroShowcase(visibleProducts);
+  renderOffersSection(visibleProducts);
   syncSiteMeta();
   syncDynamicStructuredData();
+}
+
+function renderHeroShowcase(products = []) {
+  if (!el.heroShowcase) return;
+  const candidates = [...products]
+    .filter((product) => normalizeImageUrls(product.imageUrls).length)
+    .sort((a, b) => Number(Boolean(b.pinned)) - Number(Boolean(a.pinned)))
+    .slice(0, 3);
+  if (!candidates.length) {
+    el.heroShowcase.innerHTML = `<div class="hero-showcase-main hero-showcase-placeholder"><i class="fa-solid fa-shirt"></i></div><div class="hero-showcase-side"><div class="hero-showcase-small hero-showcase-placeholder"><i class="fa-solid fa-shirt"></i></div><div class="hero-showcase-small hero-showcase-placeholder"><i class="fa-solid fa-shirt"></i></div></div>`;
+    return;
+  }
+  const buildTile = (product, className) => {
+    const image = getProductThumbUrl(normalizeImageUrls(product.imageUrls)[0]);
+    const badge = product.model ? `<span class="hero-product-model">Model ${escapeHTML(product.model)}</span>` : '';
+    return `<button type="button" class="${className} hero-product-tile" data-hero-product="${escapeAttr(product.id)}"><img src="${escapeAttr(image)}" alt="${escapeAttr(buildProductAlt(product))}" loading="eager" decoding="async" />${badge}</button>`;
+  };
+  const main = candidates[0], second = candidates[1] || main, third = candidates[2] || main;
+  el.heroShowcase.innerHTML = `${buildTile(main,'hero-showcase-main')}<div class="hero-showcase-side">${buildTile(second,'hero-showcase-small')}${buildTile(third,'hero-showcase-small')}</div>`;
+  el.heroShowcase.querySelectorAll('[data-hero-product]').forEach((button) => button.addEventListener('click', () => {
+    const product = state.products.find((item) => String(item.id) === String(button.dataset.heroProduct));
+    if (product) openQuickProduct(product);
+  }));
+}
+
+function renderOffersSection(products = getVisibleProducts()) {
+  if (!el.offersSection || !el.offersRail) return;
+  const offers = [...products]
+    .filter(hasDiscount)
+    .sort((a, b) => {
+      const discountDelta = toNumber(b.discountPercent) - toNumber(a.discountPercent);
+      if (discountDelta) return discountDelta;
+      const pinDelta = Number(Boolean(b.pinned)) - Number(Boolean(a.pinned));
+      if (pinDelta) return pinDelta;
+      return toMillis(b.createdAt || b.updatedAt) - toMillis(a.createdAt || a.updatedAt);
+    });
+
+  if (el.menuOffersCount) el.menuOffersCount.textContent = String(offers.length);
+  el.offersSection.classList.toggle('hidden', offers.length === 0);
+  el.offersRail.innerHTML = '';
+  if (!offers.length) return;
+
+  const fragment = document.createDocumentFragment();
+  offers.slice(0, 8).forEach((product) => {
+    const image = getProductThumbUrl(normalizeImageUrls(product.imageUrls)[0] || placeholderImage(product.name || product.model || 'Jood Kids'));
+    const discount = Math.round(toNumber(product.discountPercent));
+    const oldPiece = getPiecePrice(product);
+    const newPiece = getDiscountedPiecePrice(product);
+    const item = document.createElement('article');
+    item.className = 'offer-card';
+    item.tabIndex = 0;
+    item.setAttribute('role', 'button');
+    item.setAttribute('aria-label', `فتح عرض ${product.name || product.model || ''}`);
+    item.innerHTML = `
+      <div class="offer-card-media">
+        <img src="${escapeAttr(image)}" alt="${escapeAttr(buildProductAlt(product))}" loading="lazy" decoding="async" />
+        <span class="offer-discount">-${discount}%</span>
+      </div>
+      <div class="offer-card-body">
+        <div class="offer-model">موديل ${escapeHTML(product.model || '-')}</div>
+        <h3>${escapeHTML(product.name || `موديل ${product.model || ''}`)}</h3>
+        <div class="offer-price-line">
+          <strong>${formatCurrency(newPiece)}</strong>
+          <del>${formatCurrency(oldPiece)}</del>
+        </div>
+      </div>`;
+    const open = () => openQuickProduct(product);
+    item.addEventListener('click', open);
+    item.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); open(); }
+    });
+    fragment.appendChild(item);
+  });
+  el.offersRail.appendChild(fragment);
+}
+
+function openOffersExperience() {
+  closeDrawers();
+  const offersCount = getVisibleProducts().filter(hasDiscount).length;
+  if (!offersCount) {
+    showToast('لا توجد عروض مفعلة حالياً');
+    return;
+  }
+  if (el.offersSection && !el.offersSection.classList.contains('hidden')) {
+    el.offersSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return;
+  }
+  activateOffersView();
+}
+
+function openPrivateAdminRoute() {
+  const url = new URL(window.location.href);
+  if (url.searchParams.get('manage') !== '1') return;
+  requestAnimationFrame(() => openDrawer('admin'));
 }
 
 function renderPaymentIcons() {
@@ -655,6 +773,20 @@ function makeFilterChip(label, active, onClick) {
   btn.textContent = label;
   btn.addEventListener('click', onClick);
   return btn;
+}
+
+function activateOffersView(options = {}) {
+  const { toggle = false, closeAfter = false } = options;
+  if (state.catalog.step !== 'products') {
+    state.catalog.step = 'products';
+    state.filter.season = state.catalog.selectedSeason || 'all';
+    state.filter.category = state.catalog.selectedCategory || 'all';
+  }
+  state.filter.offersOnly = toggle ? !state.filter.offersOnly : true;
+  resetRenderedProducts();
+  applyFilters();
+  if (closeAfter) closeDrawers();
+  scrollProductsTop();
 }
 
 function hydrateCatalogFromUrl() {
@@ -894,7 +1026,7 @@ function renderCatalogFlow() {
     return buildCatalogCard({
       kind: 'season',
       title: season,
-      subtitle: 'ادخل إلى البادئات والموديلات',
+      subtitle: '',
       meta: 'موديل',
       count: items.length,
       icon: getSeasonIcon(season),
@@ -910,9 +1042,8 @@ function renderCatalogFlow() {
       <div class="catalog-browser-card">
         <div class="catalog-browser-head">
           <div>
-            <span class="catalog-kicker">المتجر</span>
+            <span class="catalog-kicker">Jood Kids</span>
             <h2>اختر الموسم</h2>
-            <p>ابدأ من الموسم ثم انتقل إلى البادئات ثم الموديلات.</p>
           </div>
         </div>
         <div class="catalog-browser-grid season-grid">${seasonCards}</div>
@@ -924,7 +1055,7 @@ function renderCatalogFlow() {
       return buildCatalogCard({
         kind: 'prefix',
         title: getCodeCategoryLabel(code),
-        subtitle: `بادئة ${code}`,
+        subtitle: '',
         meta: 'موديل',
         count: items.length,
         icon: getPrefixIcon(code, getCodeCategoryLabel(code)),
@@ -977,11 +1108,7 @@ function renderCatalogFlow() {
 
     const categoryLabel = selectedCategory === 'all' ? '' : getCodeCategoryLabel(selectedCategory);
     const title = selectedSubCategory !== 'all' ? selectedSubCategory : (selectedCategory === 'all' ? `كل موديلات ${selectedSeason || 'المتجر'}` : categoryLabel);
-    const description = selectedCategory === 'all'
-      ? 'جميع منتجات الموسم مع إمكانية التصفية حسب البادئة.'
-      : (selectedSubCategory !== 'all'
-          ? `عرض موديلات ${selectedSubCategory} داخل ${categoryLabel} • ${selectedSeason}.`
-          : `عرض موديلات ${categoryLabel} داخل ${selectedSeason}.`);
+    const description = '';
 
     html = `
       <div class="catalog-browser-card">
@@ -995,7 +1122,7 @@ function renderCatalogFlow() {
           <div>
             <span class="catalog-kicker">${escapeHTML(selectedSeason || 'المتجر')}</span>
             <h2>${escapeHTML(title)}</h2>
-            <p>${escapeHTML(description)}</p>
+            ${description ? `<p>${escapeHTML(description)}</p>` : ''}
           </div>
           <button class="catalog-back-btn" data-action="go-prefixes" data-season="${escapeAttr(selectedSeason)}">
             <i class="fa-solid fa-arrow-right"></i>
@@ -1089,9 +1216,13 @@ function renderProducts() {
     card.setAttribute('role', 'button');
     card.setAttribute('tabindex', '0');
     card.setAttribute('aria-label', `فتح تفاصيل ${productLabel}`);
+    const cardBadge = hasDiscount(product)
+      ? `<span class="store-product-badge discount">خصم ${Math.round(toNumber(product.discountPercent))}%</span>`
+      : (product.badgeText ? `<span class="store-product-badge">${escapeHTML(product.badgeText)}</span>` : '');
     card.innerHTML = `
       <div class="product-media">
         <img src="${escapeAttr(thumbUrl)}" alt="${escapeAttr(productAlt)}" title="${escapeAttr(productAlt)}" loading="lazy" decoding="async" fetchpriority="${index < 4 ? 'high' : 'low'}" />
+        ${cardBadge}
       </div>
       <div class="product-body">
         <div class="product-heading">
@@ -1108,7 +1239,18 @@ function renderProducts() {
       </div>`;
     card.querySelector('.product-title').textContent = product.name || 'بدون اسم';
     card.querySelector('.product-model-line').textContent = getProductSubCategory(product) ? `موديل ${product.model || '-'} • ${getProductSubCategory(product)}` : `موديل ${product.model || '-'}`;
-    card.querySelector('.piece-price-value').textContent = formatCurrency(getPiecePrice(product));
+    const piecePriceRow = card.querySelector('.piece-price-row');
+    const piecePriceValue = card.querySelector('.piece-price-value');
+    if (hasDiscount(product)) {
+      piecePriceRow.classList.add('has-offer');
+      piecePriceValue.textContent = formatCurrency(getDiscountedPiecePrice(product));
+      const oldPrice = document.createElement('del');
+      oldPrice.className = 'piece-price-old';
+      oldPrice.textContent = formatCurrency(getPiecePrice(product));
+      piecePriceRow.appendChild(oldPrice);
+    } else {
+      piecePriceValue.textContent = formatCurrency(getPiecePrice(product));
+    }
     const open = () => openQuickProduct(product);
     card.addEventListener('click', open);
     card.addEventListener('keydown', (event) => {
@@ -1430,7 +1572,7 @@ function renderAdminProducts() {
       <div class="admin-actions"><button class="ghost-btn" data-edit>تعديل</button><button class="ghost-btn" data-pin>${product.pinned ? 'إلغاء التثبيت' : 'تثبيت'}</button><button class="danger-btn" data-del>حذف</button></div>`;
     item.querySelector('[data-edit]').addEventListener('click', () => populateProductForm(product));
     item.querySelector('[data-pin]').addEventListener('click', () => togglePinned(product));
-    item.querySelector('[data-del]').addEventListener('click', () => deleteProduct(product.id));
+    item.querySelector('[data-del]').addEventListener('click', (event) => deleteProduct(product.id, event.currentTarget));
     el.adminProductsList.appendChild(item);
   });
 }
@@ -1510,7 +1652,7 @@ function renderAdminOrders() {
     card.querySelector('[data-preview]').addEventListener('click', () => previewOrderInvoice(order));
     card.querySelector('[data-download]').addEventListener('click', () => downloadInvoiceForOrder(order));
     card.querySelector('[data-copy]').addEventListener('click', () => copyText(buildWhatsAppOrderMessage(order)));
-    card.querySelector('[data-del]').addEventListener('click', () => deleteOrder(order.id));
+    card.querySelector('[data-del]').addEventListener('click', (event) => deleteOrder(order.id, event.currentTarget));
     el.adminOrdersList.appendChild(card);
   });
 }
@@ -1676,15 +1818,22 @@ async function savePolicies() {
 async function saveSeasons() {
   if (!(await ensureAdminSession())) return;
   const seasons = parseCommaList(el.seasonsInput.value);
+  const previousSeasons = Array.isArray(state.storeSettings?.seasons) ? [...state.storeSettings.seasons] : [];
+  const removedSeasons = previousSeasons.filter((season) => !seasons.includes(season));
   try {
     await setDoc(doc(db, 'settings', 'store'), { seasons, updatedAt: serverTimestamp() }, { merge: true });
-    for (const season of seasons) {
-      await setDoc(doc(db, 'categories', `season-${season}`), { type: 'season', season, label: season, updatedAt: serverTimestamp() }, { merge: true });
+    for (const season of seasons) await setDoc(doc(db, 'categories', `season-${season}`), { type: 'season', season, label: season, updatedAt: serverTimestamp() }, { merge: true });
+    for (const season of removedSeasons) {
+      const seasonDoc = state.categories.find((item) => item.type === 'season' && String(item.season || item.label) === String(season));
+      await deleteDocumentVerified('categories', seasonDoc?.id || `season-${season}`);
     }
+    state.storeSettings.seasons = seasons;
+    state.categories = state.categories.filter((item) => item.type !== 'season' || seasons.includes(String(item.season || item.label)));
+    renderAll();
     showToast('تم حفظ المواسم');
   } catch (error) {
     console.error(error);
-    showToast('تعذر حفظ المواسم');
+    showToast(getDeleteErrorMessage(error, 'المواسم'));
   }
 }
 
@@ -1698,7 +1847,7 @@ async function saveCodeCategoryLabel(code, label) {
     if (!cleanLabel) {
       delete categoryLabels[cleanCode];
       await Promise.all([
-        deleteDoc(doc(db, 'categories', `code-${cleanCode}`)).catch(() => null),
+        deleteDocumentVerified('categories', `code-${cleanCode}`),
         setDoc(doc(db, 'settings', 'store'), { codeCategoryLabels: categoryLabels, updatedAt: serverTimestamp() }, { merge: true }),
       ]);
       state.categories = state.categories.filter((item) => !(item.type === 'code' && String(item.code || item.label) === cleanCode));
@@ -1911,16 +2060,25 @@ async function togglePinned(product) {
   }
 }
 
-async function deleteProduct(productId) {
+async function deleteProduct(productId, button = null) {
   if (!(await ensureAdminSession())) return;
-  if (!confirm('حذف هذا المنتج؟')) return;
+  const product = state.products.find((item) => String(item.id) === String(productId));
+  const label = product?.model ? `موديل ${product.model}` : (product?.name || 'هذا المنتج');
+  if (!confirm(`سيتم حذف ${label} نهائيًا من المتجر. هل تريد المتابعة؟`)) return;
+  setButtonBusy(button, true, 'جارٍ الحذف');
   try {
-    await deleteDoc(doc(db, 'products', productId));
-    showToast('تم حذف المنتج');
+    await deleteDocumentVerified('products', productId);
+    state.products = state.products.filter((item) => String(item.id) !== String(productId));
+    state.cart = state.cart.filter((item) => String(item.id) !== String(productId));
+    renderCart();
+    renderAdminProducts();
+    applyFilters();
+    renderStorefront();
+    showToast('تم حذف المنتج نهائيًا');
   } catch (error) {
-    console.error(error);
-    showToast('تعذر حذف المنتج');
-  }
+    console.error('Delete product failed:', error);
+    showToast(getDeleteErrorMessage(error, 'المنتج'));
+  } finally { setButtonBusy(button, false); }
 }
 
 function togglePinnedAdminFilter() {
@@ -2022,18 +2180,22 @@ async function updateOrderStatus(orderId, status) {
   }
 }
 
-async function deleteOrder(orderId) {
+async function deleteOrder(orderId, button = null) {
   if (!(await ensureAdminSession())) return;
-  if (!confirm('حذف هذا الطلب؟')) return;
+  if (!confirm('سيتم حذف هذا الطلب نهائيًا. هل تريد المتابعة؟')) return;
+  const order = state.orders.find((item) => String(item.id) === String(orderId));
+  setButtonBusy(button, true, 'جارٍ الحذف');
   try {
-    const order = state.orders.find((entry) => entry.id === orderId);
-    await deleteDoc(doc(db, 'orders', orderId));
-    if (order) await removePublicTracking(order).catch(console.error);
-    showToast('تم حذف الطلب');
+    await deleteDocumentVerified('orders', orderId);
+    if (order) await removePublicTracking(order).catch(() => null);
+    state.orders = state.orders.filter((item) => String(item.id) !== String(orderId));
+    renderAdminOrders();
+    renderAdminForms();
+    showToast('تم حذف الطلب نهائيًا');
   } catch (error) {
-    console.error(error);
-    showToast('تعذر حذف الطلب');
-  }
+    console.error('Delete order failed:', error);
+    showToast(getDeleteErrorMessage(error, 'الطلب'));
+  } finally { setButtonBusy(button, false); }
 }
 
 async function searchTrackedOrders() {
@@ -2056,6 +2218,7 @@ async function searchTrackedOrders() {
 }
 
 async function findTrackedOrders(rawValue) {
+  if (!PUBLIC_TRACKING_ENABLED) return [];
   const results = new Map();
   const orderNo = normalizeTrackingOrderNo(rawValue);
   if (orderNo) {
@@ -2166,6 +2329,7 @@ function buildPublicTrackingRecord(order) {
 }
 
 async function syncPublicTracking(order) {
+  if (!PUBLIC_TRACKING_ENABLED) return;
   const orderRef = normalizeTrackingOrderNo(getOrderReference(order));
   if (!orderRef) return;
   const record = buildPublicTrackingRecord(order);
@@ -2177,6 +2341,7 @@ async function syncPublicTracking(order) {
 }
 
 async function removePublicTracking(order) {
+  if (!PUBLIC_TRACKING_ENABLED) return;
   const orderRef = normalizeTrackingOrderNo(getOrderReference(order));
   if (!orderRef) return;
   const removals = [deleteDoc(doc(db, 'public_order_tracking', orderRef))];
@@ -2187,6 +2352,7 @@ async function removePublicTracking(order) {
 }
 
 function syncPublicTrackingCollection(orders = []) {
+  if (!PUBLIC_TRACKING_ENABLED) return;
   Promise.allSettled((Array.isArray(orders) ? orders : []).map((order) => syncPublicTracking(order))).catch(console.error);
 }
 
@@ -2319,47 +2485,103 @@ async function importProductsExcel(event) {
   }
 }
 
+async function deleteDocumentVerified(collectionName, documentId) {
+  const reference = doc(db, collectionName, documentId);
+  await deleteDoc(reference);
+  const check = await getDoc(reference);
+  if (check.exists()) {
+    const error = new Error(`Delete verification failed for ${collectionName}/${documentId}`);
+    error.code = 'jood/delete-not-confirmed';
+    throw error;
+  }
+}
+
+async function deleteCollectionInChunks(collectionName) {
+  let totalDeleted = 0;
+  let passes = 0;
+  while (passes < 50) {
+    const snapshot = await getDocs(collection(db, collectionName));
+    if (snapshot.empty) return totalDeleted;
+    const docs = snapshot.docs;
+    for (let start = 0; start < docs.length; start += 400) {
+      const batch = writeBatch(db);
+      const chunk = docs.slice(start, start + 400);
+      chunk.forEach((entry) => batch.delete(entry.ref));
+      await batch.commit();
+      totalDeleted += chunk.length;
+    }
+    passes += 1;
+    if ((await getDocs(collection(db, collectionName))).empty) return totalDeleted;
+  }
+  const error = new Error(`Bulk delete verification failed for ${collectionName}`);
+  error.code = 'jood/delete-not-confirmed';
+  throw error;
+}
+
+function setButtonBusy(button, busy, busyText = 'جارٍ التنفيذ') {
+  if (!button) return;
+  if (busy) {
+    if (!button.dataset.originalHtml) button.dataset.originalHtml = button.innerHTML;
+    button.disabled = true;
+    button.classList.add('is-busy');
+    button.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i><span>${escapeHTML(busyText)}</span>`;
+  } else {
+    button.disabled = false;
+    button.classList.remove('is-busy');
+    if (button.dataset.originalHtml) { button.innerHTML = button.dataset.originalHtml; delete button.dataset.originalHtml; }
+  }
+}
+
+function getDeleteErrorMessage(error, target = 'البيانات') {
+  const code = String(error?.code || '').toLowerCase();
+  const message = String(error?.message || '').toLowerCase();
+  if (code.includes('permission-denied') || message.includes('permission')) return `تعذر حذف ${target}: صلاحيات Firebase تمنع العملية. طبّق ملف firestore.rules ثم سجّل الدخول من جديد.`;
+  if (code.includes('unauthenticated')) return `تعذر حذف ${target}: انتهت جلسة الإدارة. سجّل الدخول من جديد.`;
+  if (code.includes('unavailable') || message.includes('network')) return `تعذر حذف ${target}: تحقق من الإنترنت ثم أعد المحاولة.`;
+  if (code.includes('delete-not-confirmed')) return `لم يتم تأكيد حذف ${target} من قاعدة البيانات. أعد المحاولة.`;
+  return `تعذر حذف ${target}. افتح لوحة الإدارة وأعد المحاولة.`;
+}
+
 async function deleteCollectionDocs(collectionName, confirmText) {
   if (!(await ensureAdminSession())) return;
-  const answer = prompt(`للتأكيد ${confirmText}`);
+  const answer = prompt(`للتأكيد اكتب بالضبط: ${confirmText}`);
   if (answer !== confirmText) return;
+  const button = collectionName === 'products' ? el.deleteProductsBtn : el.deleteOrdersBtn;
+  setButtonBusy(button, true, 'جارٍ الحذف');
   try {
-    const snapshot = await getDocs(collection(db, collectionName));
-    const batch = writeBatch(db);
-    snapshot.docs.forEach((entry) => batch.delete(entry.ref));
-    if (!snapshot.empty) await batch.commit();
-    showToast('تم الحذف');
+    const deleted = await deleteCollectionInChunks(collectionName);
+    if (collectionName === 'products') { state.products = []; state.cart = []; renderCart(); renderAdminProducts(); applyFilters(); renderStorefront(); }
+    else { state.orders = []; renderAdminOrders(); renderAdminForms(); }
+    showToast(deleted ? `تم حذف ${deleted} سجل بنجاح` : 'لا توجد بيانات للحذف');
   } catch (error) {
-    console.error(error);
-    showToast('تعذر الحذف');
-  }
+    console.error(`Bulk delete failed for ${collectionName}:`, error);
+    showToast(getDeleteErrorMessage(error, collectionName === 'products' ? 'المنتجات' : 'الطلبات'));
+  } finally { setButtonBusy(button, false); }
 }
 
 async function deleteAllData() {
   if (!(await ensureAdminSession())) return;
-  const answer = prompt('للتأكيد النهائي اكتب حذف كل البيانات');
-  if (answer !== 'حذف كل البيانات') return;
+  const phrase = 'حذف كل البيانات';
+  const answer = prompt(`للتأكيد النهائي اكتب بالضبط: ${phrase}`);
+  if (answer !== phrase) return;
+  setButtonBusy(el.deleteAllDataBtn, true, 'جارٍ الحذف');
   try {
-    for (const name of ['products', 'orders', 'categories']) {
-      const snapshot = await getDocs(collection(db, name));
-      const batch = writeBatch(db);
-      snapshot.docs.forEach((entry) => batch.delete(entry.ref));
-      if (!snapshot.empty) await batch.commit();
-    }
+    let deleted = 0;
+    for (const name of ['products', 'orders', 'categories']) deleted += await deleteCollectionInChunks(name);
     await Promise.all([
-      setDoc(doc(db, 'company', 'main'), DEFAULT_COMPANY),
-      setDoc(doc(db, 'settings', 'storefront'), DEFAULT_STOREFRONT),
-      setDoc(doc(db, 'settings', 'store'), DEFAULT_STORE_SETTINGS),
-      setDoc(doc(db, 'payments', 'default'), { policyText: DEFAULT_PAYMENT_POLICY, methods: DEFAULT_PAYMENT_METHODS }),
-      setDoc(doc(db, 'shipping', 'default'), { policyText: DEFAULT_SHIPPING_POLICY }),
+      setDoc(doc(db, 'company', 'main'), { ...DEFAULT_COMPANY, updatedAt: serverTimestamp() }),
+      setDoc(doc(db, 'settings', 'storefront'), { ...DEFAULT_STOREFRONT, updatedAt: serverTimestamp() }),
+      setDoc(doc(db, 'settings', 'store'), { ...DEFAULT_STORE_SETTINGS, updatedAt: serverTimestamp() }),
+      setDoc(doc(db, 'payments', 'default'), { policyText: DEFAULT_PAYMENT_POLICY, methods: DEFAULT_PAYMENT_METHODS, updatedAt: serverTimestamp() }),
+      setDoc(doc(db, 'shipping', 'default'), { policyText: DEFAULT_SHIPPING_POLICY, updatedAt: serverTimestamp() }),
     ]);
-    state.cart = [];
-    renderCart();
-    showToast('تمت إعادة ضبط البيانات');
+    state.products = []; state.orders = []; state.categories = []; state.cart = [];
+    renderCart(); renderAdminProducts(); renderAdminOrders(); renderAdminForms(); applyFilters(); renderStorefront();
+    showToast(`تم حذف البيانات وإعادة الإعدادات الافتراضية${deleted ? ` (${deleted} سجل)` : ''}`);
   } catch (error) {
-    console.error(error);
-    showToast('تعذر حذف البيانات');
-  }
+    console.error('Delete all data failed:', error);
+    showToast(getDeleteErrorMessage(error, 'كل البيانات'));
+  } finally { setButtonBusy(el.deleteAllDataBtn, false); }
 }
 
 function openDrawer(which) {
@@ -3153,6 +3375,11 @@ function getDisplayPrice(product) {
   const price = getSeriesBasePrice(product);
   const discount = clamp(toNumber(product.discountPercent || 0), 0, 99);
   return round2(price - (price * discount / 100));
+}
+
+function getDiscountedPiecePrice(product) {
+  const qty = getSeriesQtyNumber(product);
+  return qty > 0 ? round2(getDisplayPrice(product) / qty) : round2(getDisplayPrice(product));
 }
 
 function getCodeCategoryKeys() {
