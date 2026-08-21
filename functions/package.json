@@ -1,0 +1,13 @@
+{
+  "name": "joodkids-cloudinary-cleanup",
+  "private": true,
+  "main": "index.js",
+  "engines": {
+    "node": "20"
+  },
+  "dependencies": {
+    "cloudinary": "^2.10.1",
+    "firebase-admin": "^14.3.0",
+    "firebase-functions": "^7.3.2"
+  }
+}

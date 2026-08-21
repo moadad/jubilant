@@ -16,7 +16,7 @@ const ADMIN_EMAILS = ['admin@sestem.local', 'admin@system.local'];
 const CLOUDINARY_CLOUD_NAME = 'dthtzvypx';
 const CART_STORAGE_KEY = 'joodkids_cart_wholesale_piece_v3_fast';
 const PRODUCT_PAGE_SIZE = 24;
-const APP_SW_VERSION = 'joodkids-premium-v32';
+const APP_SW_VERSION = 'joodkids-premium-v33';
 const APP_ROOT_URL = new URL('./', window.location.href);
 const SITE_URL = APP_ROOT_URL.href;
 const OPEN_CART_FLAG_KEY = 'joodkids_open_cart_after_nav';
@@ -113,7 +113,7 @@ const state = {
   productImagesDraft: [],
   featuredOnlyAdmin: false,
   gallery: { urls: [], index: 0 },
-  filter: { search: '', category: 'all', subCategory: 'all', season: 'all', offersOnly: false, sort: 'featured' },
+  filter: { search: '', category: 'all', subCategory: 'all', season: 'all', offersOnly: false, sort: 'modelAsc' },
   deferredInstallPrompt: null,
   assetTargetInputId: '',
   filteredProducts: [],
@@ -504,7 +504,7 @@ function initTabs() {
 function subscribeData() {
   onSnapshot(collection(db, 'products'), (snapshot) => {
     state.products = snapshot.docs.map((entry) => enrichProduct({ id: entry.id, ...entry.data() }));
-    state.products.sort((a, b) => toMillis(b.createdAt || b.updatedAt) - toMillis(a.createdAt || a.updatedAt));
+    state.products.sort(compareProductsByModel);
     resetRenderedProducts();
     scheduleRenderEverything();
   }, console.error);
@@ -834,8 +834,8 @@ function resetCatalogSearch(preserveSort = false) {
   state.filter.offersOnly = false;
   el.searchInput.value = '';
   if (!preserveSort) {
-    state.filter.sort = 'featured';
-    el.sortFilter.value = 'featured';
+    state.filter.sort = 'modelAsc';
+    el.sortFilter.value = 'modelAsc';
   }
 }
 
@@ -1179,7 +1179,7 @@ function applyFilters() {
       if (offers) return offers;
       return toMillis(b.createdAt || b.updatedAt) - toMillis(a.createdAt || a.updatedAt);
     }
-    if (sort === 'modelAsc') return String(a.model || '').localeCompare(String(b.model || ''), 'en', { numeric: true });
+    if (sort === 'modelAsc') return compareProductsByModel(a, b);
     if (sort === 'newest') return toMillis(b.createdAt || b.updatedAt) - toMillis(a.createdAt || a.updatedAt);
     const pinDelta = Number(Boolean(b.pinned)) - Number(Boolean(a.pinned));
     if (pinDelta) return pinDelta;
@@ -1556,7 +1556,7 @@ function renderCategoryManager() {
 
 function renderAdminProducts() {
   el.adminProductsList.innerHTML = '';
-  let products = [...state.products];
+  let products = [...state.products].sort(compareProductsByModel);
   if (state.featuredOnlyAdmin) products = products.filter((item) => item.pinned);
   products.forEach((product) => {
     const urls = normalizeImageUrls(product.imageUrls);
@@ -2074,7 +2074,7 @@ async function deleteProduct(productId, button = null) {
     renderAdminProducts();
     applyFilters();
     renderStorefront();
-    showToast('تم حذف المنتج نهائيًا');
+    showToast('تم حذف المنتج، وسيتم حذف صوره من Cloudinary تلقائيًا');
   } catch (error) {
     console.error('Delete product failed:', error);
     showToast(getDeleteErrorMessage(error, 'المنتج'));
@@ -3344,9 +3344,9 @@ function clearFilters() {
   const season = state.catalog.selectedSeason || '';
   const category = state.catalog.step === 'products' ? (state.catalog.selectedCategory || 'all') : 'all';
   const subCategory = state.catalog.step === 'products' ? (state.catalog.selectedSubCategory || 'all') : 'all';
-  state.filter = { search: '', category: category || 'all', subCategory: subCategory || 'all', season: season || 'all', offersOnly: false, sort: 'featured' };
+  state.filter = { search: '', category: category || 'all', subCategory: subCategory || 'all', season: season || 'all', offersOnly: false, sort: 'modelAsc' };
   el.searchInput.value = '';
-  el.sortFilter.value = 'featured';
+  el.sortFilter.value = 'modelAsc';
   resetRenderedProducts();
   applyFilters();
 }
@@ -3362,6 +3362,23 @@ function renderMoreProducts() {
 
 function buildProductSearchText(product) {
   return `${product.name || ''} ${product.model || ''} ${product.season || ''} ${product.sizes || ''} ${product.codeCategory || ''} ${getProductSubCategory(product)}`.toLowerCase();
+}
+
+function getModelSortParts(value) {
+  const raw = String(value ?? '').trim();
+  const normalized = raw.replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+  const numericMatches = normalized.match(/\d+/g) || [];
+  const primary = numericMatches.length ? Number(numericMatches[0]) : Number.POSITIVE_INFINITY;
+  return { raw: normalized, primary };
+}
+
+function compareProductsByModel(a, b) {
+  const left = getModelSortParts(a?.model);
+  const right = getModelSortParts(b?.model);
+  if (left.primary !== right.primary) return left.primary - right.primary;
+  const natural = left.raw.localeCompare(right.raw, 'en', { numeric: true, sensitivity: 'base' });
+  if (natural) return natural;
+  return String(a?.name || '').localeCompare(String(b?.name || ''), 'ar', { numeric: true, sensitivity: 'base' });
 }
 
 function enrichProduct(product) {

@@ -271,12 +271,15 @@ function renderBadges(product, category) {
 function renderRelatedProducts(currentProduct, products, brand, categories) {
   const related = products
     .filter((item) => item.id !== currentProduct.id)
-    .filter((item) => String(item.codeCategory || '') === String(currentProduct.codeCategory || '') || String(item.season || '') === String(currentProduct.season || ''))
-    .slice(0, 8);
+    .map((item) => ({ product: item, score: getSimilarityScore(currentProduct, item) }))
+    .filter((entry) => entry.score >= 45)
+    .sort((a, b) => b.score - a.score || compareProductsByModel(a.product, b.product))
+    .slice(0, 8)
+    .map((entry) => entry.product);
 
   el.relatedProducts.innerHTML = '';
   if (!related.length) {
-    el.relatedProducts.innerHTML = '<div class="empty-card" style="grid-column:1/-1">لا توجد منتجات مشابهة الآن.</div>';
+    el.relatedProducts.innerHTML = '<div class="empty-card" style="grid-column:1/-1">لا توجد موديلات مشابهة الآن.</div>';
     return;
   }
 
@@ -303,6 +306,60 @@ function renderRelatedProducts(currentProduct, products, brand, categories) {
       </div>`;
     el.relatedProducts.appendChild(article);
   });
+}
+
+function normalizeModelNumber(value) {
+  const raw = String(value ?? '').trim().replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+  const match = raw.match(/\d+/);
+  return match ? Number(match[0]) : Number.NaN;
+}
+
+function getModelFamily(value) {
+  const digits = String(value ?? '').replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.length >= 4) return digits.slice(0, 2);
+  return digits.slice(0, 1);
+}
+
+function compareProductsByModel(a, b) {
+  const left = normalizeModelNumber(a?.model);
+  const right = normalizeModelNumber(b?.model);
+  if (Number.isFinite(left) && Number.isFinite(right) && left !== right) return left - right;
+  if (Number.isFinite(left) !== Number.isFinite(right)) return Number.isFinite(left) ? -1 : 1;
+  return String(a?.model || '').localeCompare(String(b?.model || ''), 'en', { numeric: true, sensitivity: 'base' });
+}
+
+function getSimilarityScore(current, candidate) {
+  let score = 0;
+  const currentModel = normalizeModelNumber(current?.model);
+  const candidateModel = normalizeModelNumber(candidate?.model);
+  const currentFamily = getModelFamily(current?.model);
+  const candidateFamily = getModelFamily(candidate?.model);
+
+  if (currentFamily && currentFamily === candidateFamily) score += 90;
+  if (String(current?.codeCategory || '') && String(current?.codeCategory || '') === String(candidate?.codeCategory || '')) score += 55;
+
+  const currentSub = getProductSubCategory(current);
+  const candidateSub = getProductSubCategory(candidate);
+  if (currentSub && candidateSub && currentSub === candidateSub) score += 45;
+  if (current?.season && candidate?.season && String(current.season) === String(candidate.season)) score += 20;
+
+  if (Number.isFinite(currentModel) && Number.isFinite(candidateModel)) {
+    const distance = Math.abs(currentModel - candidateModel);
+    if (distance <= 3) score += 70;
+    else if (distance <= 10) score += 50;
+    else if (distance <= 25) score += 30;
+    else if (distance <= 75) score += 15;
+  }
+
+  const currentName = String(current?.name || '').trim().toLowerCase();
+  const candidateName = String(candidate?.name || '').trim().toLowerCase();
+  if (currentName && candidateName) {
+    const words = currentName.split(/\s+/).filter((word) => word.length >= 3);
+    if (words.some((word) => candidateName.includes(word))) score += 25;
+  }
+
+  return score;
 }
 
 function syncStructuredData(product, brand, category, description, imageUrl, productUrl, company) {
