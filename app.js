@@ -16,7 +16,7 @@ const ADMIN_EMAILS = ['admin@sestem.local', 'admin@system.local'];
 const CLOUDINARY_CLOUD_NAME = 'dthtzvypx';
 const CART_STORAGE_KEY = 'joodkids_cart_wholesale_piece_v3_fast';
 const PRODUCT_PAGE_SIZE = 24;
-const APP_SW_VERSION = 'joodkids-premium-v32';
+const APP_SW_VERSION = 'joodkids-premium-v34';
 const APP_ROOT_URL = new URL('./', window.location.href);
 const SITE_URL = APP_ROOT_URL.href;
 const OPEN_CART_FLAG_KEY = 'joodkids_open_cart_after_nav';
@@ -374,12 +374,9 @@ function bindUI() {
   el.cartToggle.addEventListener('click', () => openDrawer('cart'));
   el.closeCart.addEventListener('click', closeDrawers);
   el.closeAdmin.addEventListener('click', closeDrawers);
-  // Important: do not stop events on the admin drawer during capture phase.
-  // Doing that prevents inner buttons like login, save, tabs and delete from receiving clicks.
-  ['click', 'pointerup', 'touchend'].forEach((type) => {
-    el.adminDrawer.addEventListener(type, (event) => {
-      if (event.target === el.adminDrawer) event.stopPropagation();
-    });
+  // Keep the admin drawer isolated without binding duplicate touch/pointer handlers.
+  el.adminDrawer.addEventListener('click', (event) => {
+    if (event.target === el.adminDrawer) event.stopPropagation();
   });
   el.overlay.addEventListener('click', closeDrawers);
   window.addEventListener('hashchange', handleInitialCartRoute);
@@ -420,15 +417,13 @@ function bindUI() {
   el.trackOrderInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); searchTrackedOrders(); } });
   el.invoiceDownloadBtn?.addEventListener('click', () => downloadActiveInvoice());
   el.invoiceWhatsappBtn?.addEventListener('click', () => openInvoiceWhatsApp());
-  ['click', 'pointerup', 'touchend'].forEach((eventName) => {
-    el.adminLoginBtn.addEventListener(eventName, (e) => {
-      e.preventDefault();
-      adminLogin();
-    }, { passive: false });
-    el.adminLogoutBtn.addEventListener(eventName, (e) => {
-      e.preventDefault();
-      adminLogout();
-    }, { passive: false });
+  el.adminLoginBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    adminLogin();
+  });
+  el.adminLogoutBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    adminLogout();
   });
   [el.adminEmail, el.adminPassword].forEach((input) => {
     input.addEventListener('keydown', (e) => {
@@ -484,22 +479,18 @@ function bindUI() {
     el.singleAssetUploader.click();
   }));
   document.querySelectorAll('.modal-close').forEach((btn) => {
-    ['click', 'pointerup', 'touchend'].forEach((eventName) => {
-      btn.addEventListener(eventName, (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        closeModal(e.currentTarget.dataset.close);
-      }, { passive: false });
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      closeModal(e.currentTarget.dataset.close);
     });
   });
   [el.contactModal, el.trackOrderModal, el.policyModal, el.imageModal, el.checkoutModal, el.invoiceModal, el.quickProductModal].filter(Boolean).forEach((modal) => {
-    ['click', 'pointerup', 'touchend'].forEach((eventName) => {
-      modal.addEventListener(eventName, (e) => {
-        if (e.target === modal) {
-          e.preventDefault();
-          closeModal(modal.id);
-        }
-      }, { passive: false });
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        e.preventDefault();
+        closeModal(modal.id);
+      }
     });
   });
   el.quickProductAddBtn?.addEventListener('click', (e) => {
@@ -2895,9 +2886,15 @@ async function installPwa() {
 }
 
 function registerServiceWorker() {
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register(`./service-worker.js?v=${APP_SW_VERSION}`).catch(console.error));
-  }
+  if (!('serviceWorker' in navigator)) return;
+  window.addEventListener('load', async () => {
+    try {
+      const registration = await navigator.serviceWorker.register(`./service-worker.js?v=${APP_SW_VERSION}`, { updateViaCache: 'none' });
+      await registration.update();
+    } catch (error) {
+      console.error('Service worker registration failed:', error);
+    }
+  }, { once: true });
 }
 
 function openWhatsAppDirect() {

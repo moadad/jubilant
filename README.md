@@ -1,4 +1,4 @@
-# Jood Kids Professional Web V33
+# Jood Kids Professional Web V34
 
 نسخة متجر ويب احترافية ومتجاوبة مع الموبايل.
 
@@ -14,3 +14,6 @@
 
 ## النشر
 ارفع محتويات هذا المجلد كما هي إلى GitHub Pages، وطبّق `firestore.rules` على مشروع Firebase.
+
+
+V34: تم إصلاح تعارض الكاش بين HTML وJavaScript، وتوحيد أحداث الأزرار على click لتجنب التكرار على الموبايل.
