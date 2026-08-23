@@ -230,12 +230,12 @@
         </div>
         <div class="toolbar-filters">
           <select id="sortFilter" class="clean-select">
-            <option value="modelAsc" selected>ترتيب الموديلات حسب الرقم</option>
             <option value="featured">المثبت ثم الأحدث</option>
             <option value="newest">الأحدث</option>
             <option value="priceAsc">السعر تصاعدي</option>
             <option value="priceDesc">السعر تنازلي</option>
             <option value="offers">العروض أولاً</option>
+            <option value="modelAsc">الموديل تصاعدي</option>
           </select>
           <button id="clearFiltersBtn" class="soft-pill alt"><i class="fa-solid fa-rotate-left"></i><span>إعادة التصفية</span></button>
         </div>
@@ -325,7 +325,8 @@
         <button class="tab-btn" data-tab="appearanceTab"><i class="fa-solid fa-swatchbook"></i><span>الواجهة</span></button>
         <button class="tab-btn" data-tab="companyTab"><i class="fa-solid fa-building"></i><span>الشركة</span></button>
         <button class="tab-btn" data-tab="categoryTab"><i class="fa-solid fa-tags"></i><span>التصنيفات</span></button>
-        <button class="tab-btn" data-tab="productTab"><i class="fa-solid fa-shirt"></i><span>المنتجات</span></button>
+        <button class="tab-btn" data-tab="productAddTab"><i class="fa-solid fa-circle-plus"></i><span>إضافة منتج</span></button>
+        <button class="tab-btn" data-tab="productsManagerTab"><i class="fa-solid fa-shirt"></i><span>المنتجات</span></button>
         <button class="tab-btn" data-tab="ordersTab"><i class="fa-solid fa-bag-shopping"></i><span>الطلبات</span></button>
         <button class="tab-btn" data-tab="dataTab"><i class="fa-solid fa-database"></i><span>البيانات</span></button>
       </div>
@@ -405,42 +406,69 @@
         </article>
       </div>
 
-      <div id="productTab" class="tab-panel">
-        <article class="panel-card">
-          <h4 id="productFormTitle">إضافة منتج</h4>
-          <div class="grid-2">
+      <div id="productAddTab" class="tab-panel">
+        <article class="panel-card product-editor-card">
+          <div class="admin-section-heading">
+            <div>
+              <span class="admin-eyebrow"><i class="fa-solid fa-box-open"></i> بيانات الموديل</span>
+              <h4 id="productFormTitle">إضافة منتج</h4>
+            </div>
+            <button id="goProductsManagerBtn" type="button" class="ghost-btn"><i class="fa-solid fa-magnifying-glass"></i><span>البحث في المنتجات</span></button>
+          </div>
+          <div class="grid-2 product-form-grid">
+            <div class="field"><label>رقم الموديل</label><input id="productModelInput" type="text" inputmode="numeric" autocomplete="off" placeholder="مثال: 808" /></div>
             <div class="field"><label>اسم المنتج</label><input id="productNameInput" type="text" /></div>
-            <div class="field"><label>الموديل</label><input id="productModelInput" type="text" /></div>
             <div class="field"><label>سعر القطعة</label><input id="productPriceInput" type="number" min="0" step="0.01" /></div>
             <div class="field"><label>نسبة الخصم %</label><input id="productDiscountInput" type="number" min="0" max="99" step="1" value="0" /></div>
             <div class="field"><label>الموسم</label><select id="productSeasonInput"></select></div>
-            <div class="field"><label>التصنيف داخل البادئة</label><input id="productSubCategoryInput" type="text" placeholder="ولادي أو بناتي أو حديث الولادة" /></div>
-            <div class="field"><label>المقاسات</label><input id="productSizesInput" type="text" placeholder="6 / 12 / 18" /></div>
+            <div class="field"><label>التصنيف</label><input id="productSubCategoryInput" type="text" placeholder="ولادي أو بناتي أو حديث الولادة" /></div>
+            <div class="field"><label>المقاسات</label><input id="productSizesInput" type="text" placeholder="6 / 12 / 18 M" /></div>
             <div class="field"><label>كمية السيري</label><input id="productMinQtyInput" type="text" placeholder="6 أو 12 أو 4 أو 9" value="1" /></div>
             <div class="field"><label>شارة إضافية</label><input id="productBadgeInput" type="text" placeholder="جديد" /></div>
             <div class="field"><label>تثبيت</label><select id="productPinnedInput"><option value="true">نعم</option><option value="false">لا</option></select></div>
-            <div class="field"><label>إظهار</label><select id="productVisibleInput"><option value="true">نعم</option><option value="false">لا</option></select></div>
+            <div class="field"><label>إظهار في المتجر</label><select id="productVisibleInput"><option value="true">نعم</option><option value="false">لا</option></select></div>
             <div class="field full"><label>الوصف</label><textarea id="productDescriptionInput" rows="4"></textarea></div>
           </div>
-          <div class="field full"><label>روابط الصور</label><textarea id="productImageUrlsInput" rows="4" placeholder="كل رابط في سطر مستقل"></textarea></div>
-          <div class="btn-row wrap">
+          <div class="field full"><label>صور المنتج</label><textarea id="productImageUrlsInput" rows="4" placeholder="كل رابط صورة في سطر مستقل"></textarea></div>
+          <div class="btn-row wrap product-form-actions">
             <label class="file-btn">
               <input id="productImagesInput" type="file" accept="image/*" multiple hidden />
               <span class="ghost-btn"><i class="fa-solid fa-cloud-arrow-up"></i><span>رفع صور</span></span>
             </label>
-            <button id="saveProductBtn" class="primary-btn">حفظ المنتج</button>
+            <button id="saveProductBtn" class="primary-btn"><i class="fa-solid fa-floppy-disk"></i><span>حفظ المنتج</span></button>
             <button id="resetProductBtn" class="ghost-btn">إعادة ضبط</button>
           </div>
           <div id="uploadStatus" class="status-line"></div>
           <div id="productImagesPreview" class="preview-grid"></div>
         </article>
+      </div>
 
-        <article class="panel-card">
-          <div class="panel-top">
-            <h4>إدارة المنتجات</h4>
-            <div class="btn-row"><button id="togglePinnedFilterBtn" class="ghost-btn">المثبت فقط</button></div>
+      <div id="productsManagerTab" class="tab-panel">
+        <article class="panel-card product-manager-card">
+          <div class="admin-section-heading product-manager-heading">
+            <div>
+              <span class="admin-eyebrow"><i class="fa-solid fa-magnifying-glass"></i> إدارة الموديلات</span>
+              <h4>البحث عن منتج</h4>
+              <p>اكتب رقم الموديل وستظهر بياناته مباشرة.</p>
+            </div>
+            <button id="goAddProductBtn" type="button" class="primary-btn"><i class="fa-solid fa-plus"></i><span>إضافة منتج جديد</span></button>
           </div>
-          <div id="adminProductsList" class="stack-list"></div>
+
+          <div class="admin-model-search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input id="adminProductSearchInput" type="search" inputmode="numeric" autocomplete="off" placeholder="اكتب رقم الموديل..." aria-label="البحث برقم الموديل" />
+            <button id="adminProductSearchClear" type="button" class="search-clear-btn" aria-label="مسح البحث"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+
+          <div class="product-manager-tools">
+            <div id="adminProductSearchStatus" class="product-search-status">ابدأ بكتابة رقم الموديل</div>
+            <div class="btn-row">
+              <button id="togglePinnedFilterBtn" class="ghost-btn">المثبت فقط</button>
+              <button id="toggleAllProductsBtn" class="ghost-btn">عرض الكل</button>
+            </div>
+          </div>
+
+          <div id="adminProductsList" class="stack-list admin-products-results"></div>
         </article>
       </div>
 

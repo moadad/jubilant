@@ -16,7 +16,7 @@ const ADMIN_EMAILS = ['admin@sestem.local', 'admin@system.local'];
 const CLOUDINARY_CLOUD_NAME = 'dthtzvypx';
 const CART_STORAGE_KEY = 'joodkids_cart_wholesale_piece_v3_fast';
 const PRODUCT_PAGE_SIZE = 24;
-const APP_SW_VERSION = 'joodkids-premium-v33';
+const APP_SW_VERSION = 'joodkids-premium-v32';
 const APP_ROOT_URL = new URL('./', window.location.href);
 const SITE_URL = APP_ROOT_URL.href;
 const OPEN_CART_FLAG_KEY = 'joodkids_open_cart_after_nav';
@@ -112,8 +112,10 @@ const state = {
   editingProductId: null,
   productImagesDraft: [],
   featuredOnlyAdmin: false,
+  adminProductSearch: '',
+  adminProductShowAll: false,
   gallery: { urls: [], index: 0 },
-  filter: { search: '', category: 'all', subCategory: 'all', season: 'all', offersOnly: false, sort: 'modelAsc' },
+  filter: { search: '', category: 'all', subCategory: 'all', season: 'all', offersOnly: false, sort: 'featured' },
   deferredInstallPrompt: null,
   assetTargetInputId: '',
   filteredProducts: [],
@@ -216,6 +218,12 @@ const el = {
   adminCategoriesCount: id('adminCategoriesCount'),
   adminOrdersTotal: id('adminOrdersTotal'),
   adminProductsList: id('adminProductsList'),
+  adminProductSearchInput: id('adminProductSearchInput'),
+  adminProductSearchClear: id('adminProductSearchClear'),
+  adminProductSearchStatus: id('adminProductSearchStatus'),
+  toggleAllProductsBtn: id('toggleAllProductsBtn'),
+  goAddProductBtn: id('goAddProductBtn'),
+  goProductsManagerBtn: id('goProductsManagerBtn'),
   adminOrdersList: id('adminOrdersList'),
   adminTabs: [...document.querySelectorAll('.tab-btn')],
   tabsPanels: [...document.querySelectorAll('.tab-panel')],
@@ -436,6 +444,28 @@ function bindUI() {
   el.saveSeasonsBtn.addEventListener('click', saveSeasons);
   el.saveProductBtn.addEventListener('click', saveProduct);
   el.resetProductBtn.addEventListener('click', resetProductForm);
+  el.goAddProductBtn?.addEventListener('click', () => { resetProductForm(); activateAdminTab('productAddTab'); queueMicrotask(() => el.productModelInput?.focus()); });
+  el.goProductsManagerBtn?.addEventListener('click', () => { activateAdminTab('productsManagerTab'); queueMicrotask(() => el.adminProductSearchInput?.focus()); });
+  el.adminProductSearchInput?.addEventListener('input', debounce(() => {
+    state.adminProductSearch = normalizeAdminProductSearch(el.adminProductSearchInput.value);
+    state.adminProductShowAll = false;
+    renderAdminProducts();
+  }, 80));
+  el.adminProductSearchInput?.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      clearAdminProductSearch();
+    }
+  });
+  el.adminProductSearchClear?.addEventListener('click', clearAdminProductSearch);
+  el.toggleAllProductsBtn?.addEventListener('click', () => {
+    state.adminProductShowAll = !state.adminProductShowAll;
+    if (state.adminProductShowAll) {
+      state.adminProductSearch = '';
+      if (el.adminProductSearchInput) el.adminProductSearchInput.value = '';
+    }
+    renderAdminProducts();
+  });
   el.productImageUrlsInput.addEventListener('input', syncDraftImagesFromTextarea);
   el.productImagesInput.addEventListener('change', handleProductFileUpload);
   el.exportProductsBtn.addEventListener('click', exportProductsExcel);
@@ -496,15 +526,21 @@ function initTabs() {
   el.adminTabs.forEach((btn) => btn.addEventListener('click', (event) => {
     event.preventDefault();
     event.stopPropagation();
-    el.adminTabs.forEach((item) => item.classList.toggle('active', item === btn));
-    el.tabsPanels.forEach((panel) => panel.classList.toggle('active', panel.id === btn.dataset.tab));
+    activateAdminTab(btn.dataset.tab);
   }));
+}
+
+function activateAdminTab(tabId) {
+  if (!tabId) return;
+  el.adminTabs.forEach((item) => item.classList.toggle('active', item.dataset.tab === tabId));
+  el.tabsPanels.forEach((panel) => panel.classList.toggle('active', panel.id === tabId));
+  if (tabId === 'productsManagerTab') renderAdminProducts();
 }
 
 function subscribeData() {
   onSnapshot(collection(db, 'products'), (snapshot) => {
     state.products = snapshot.docs.map((entry) => enrichProduct({ id: entry.id, ...entry.data() }));
-    state.products.sort(compareProductsByModel);
+    state.products.sort((a, b) => toMillis(b.createdAt || b.updatedAt) - toMillis(a.createdAt || a.updatedAt));
     resetRenderedProducts();
     scheduleRenderEverything();
   }, console.error);
@@ -834,8 +870,8 @@ function resetCatalogSearch(preserveSort = false) {
   state.filter.offersOnly = false;
   el.searchInput.value = '';
   if (!preserveSort) {
-    state.filter.sort = 'modelAsc';
-    el.sortFilter.value = 'modelAsc';
+    state.filter.sort = 'featured';
+    el.sortFilter.value = 'featured';
   }
 }
 
@@ -1179,7 +1215,7 @@ function applyFilters() {
       if (offers) return offers;
       return toMillis(b.createdAt || b.updatedAt) - toMillis(a.createdAt || a.updatedAt);
     }
-    if (sort === 'modelAsc') return compareProductsByModel(a, b);
+    if (sort === 'modelAsc') return String(a.model || '').localeCompare(String(b.model || ''), 'en', { numeric: true });
     if (sort === 'newest') return toMillis(b.createdAt || b.updatedAt) - toMillis(a.createdAt || a.updatedAt);
     const pinDelta = Number(Boolean(b.pinned)) - Number(Boolean(a.pinned));
     if (pinDelta) return pinDelta;
@@ -1554,22 +1590,115 @@ function renderCategoryManager() {
   });
 }
 
-function renderAdminProducts() {
-  el.adminProductsList.innerHTML = '';
-  let products = [...state.products].sort(compareProductsByModel);
+function normalizeAdminProductSearch(value) {
+  return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function normalizeModelForAdminSearch(value) {
+  return String(value || '').trim().toLowerCase().replace(/[\s\-_./\\]+/g, '');
+}
+
+function clearAdminProductSearch() {
+  state.adminProductSearch = '';
+  state.adminProductShowAll = false;
+  if (el.adminProductSearchInput) el.adminProductSearchInput.value = '';
+  renderAdminProducts();
+  queueMicrotask(() => el.adminProductSearchInput?.focus());
+}
+
+function getAdminProductSearchResults() {
+  let products = [...state.products];
   if (state.featuredOnlyAdmin) products = products.filter((item) => item.pinned);
+
+  const rawSearch = normalizeAdminProductSearch(state.adminProductSearch || el.adminProductSearchInput?.value || '');
+  const modelSearch = normalizeModelForAdminSearch(rawSearch);
+  if (!rawSearch) {
+    return state.adminProductShowAll ? products : [];
+  }
+
+  const ranked = products.map((product) => {
+    const model = normalizeModelForAdminSearch(product.model);
+    const name = String(product.name || '').toLowerCase();
+    let rank = 99;
+    if (model && model === modelSearch) rank = 0;
+    else if (model && model.startsWith(modelSearch)) rank = 1;
+    else if (model && model.includes(modelSearch)) rank = 2;
+    else if (name.includes(rawSearch)) rank = 3;
+    return { product, rank };
+  }).filter((entry) => entry.rank < 99);
+
+  ranked.sort((a, b) => a.rank - b.rank || String(a.product.model || '').localeCompare(String(b.product.model || ''), 'ar', { numeric: true }));
+  return ranked.map((entry) => entry.product);
+}
+
+function renderAdminProducts() {
+  if (!el.adminProductsList) return;
+  el.adminProductsList.innerHTML = '';
+  const products = getAdminProductSearchResults();
+  const rawSearch = normalizeAdminProductSearch(state.adminProductSearch || el.adminProductSearchInput?.value || '');
+
+  if (el.adminProductSearchClear) el.adminProductSearchClear.classList.toggle('show', Boolean(rawSearch));
+  if (el.toggleAllProductsBtn) el.toggleAllProductsBtn.textContent = state.adminProductShowAll ? 'إخفاء الكل' : 'عرض الكل';
+  if (el.togglePinnedFilterBtn) el.togglePinnedFilterBtn.classList.toggle('active-filter', state.featuredOnlyAdmin);
+
+  if (el.adminProductSearchStatus) {
+    if (rawSearch) {
+      el.adminProductSearchStatus.innerHTML = products.length
+        ? `<strong>${products.length}</strong> ${products.length === 1 ? 'نتيجة للموديل' : 'نتائج للموديل'} <b>${escapeHTML(rawSearch)}</b>`
+        : `لا توجد نتيجة للموديل <b>${escapeHTML(rawSearch)}</b>`;
+    } else if (state.adminProductShowAll) {
+      el.adminProductSearchStatus.innerHTML = `جميع المنتجات <strong>${products.length}</strong>`;
+    } else {
+      el.adminProductSearchStatus.textContent = 'ابدأ بكتابة رقم الموديل';
+    }
+  }
+
+  if (!products.length) {
+    const empty = document.createElement('div');
+    empty.className = 'admin-product-search-empty';
+    empty.innerHTML = rawSearch
+      ? `<i class="fa-solid fa-box-open"></i><strong>الموديل غير موجود</strong><span>تأكد من رقم الموديل أو أضف منتجًا جديدًا.</span><button type="button" class="primary-btn" data-add-new><i class="fa-solid fa-plus"></i><span>إضافة منتج</span></button>`
+      : `<i class="fa-solid fa-magnifying-glass"></i><strong>ابحث برقم الموديل</strong><span>اكتب الرقم في مربع البحث لتظهر بيانات المنتج فورًا.</span>`;
+    empty.querySelector('[data-add-new]')?.addEventListener('click', () => {
+      resetProductForm();
+      if (rawSearch) el.productModelInput.value = rawSearch;
+      activateAdminTab('productAddTab');
+      queueMicrotask(() => el.productNameInput?.focus());
+    });
+    el.adminProductsList.appendChild(empty);
+    return;
+  }
+
   products.forEach((product) => {
     const urls = normalizeImageUrls(product.imageUrls);
     const item = document.createElement('div');
-    item.className = 'admin-item admin-product-item';
+    item.className = 'admin-item admin-product-item admin-product-result-card';
+    const visibleLabel = product.visible === false ? 'مخفي' : 'ظاهر';
+    const visibleClass = product.visible === false ? 'is-hidden' : 'is-visible';
+    const exact = rawSearch && normalizeModelForAdminSearch(product.model) === normalizeModelForAdminSearch(rawSearch);
+    if (exact) item.classList.add('exact-model-match');
     item.innerHTML = `
       <img class="admin-product-thumb" src="${escapeAttr(getMiniImageUrl(urls[0] || placeholderImage(product.name || product.model || 'Jood Kids')))}" alt="${escapeAttr(buildProductAlt(product))}" loading="lazy" decoding="async" />
-      <div>
-        <h4>${escapeHTML(product.name || '')}</h4>
-        <div class="muted">موديل ${escapeHTML(product.model || '')} • ${escapeHTML(getCodeCategoryLabel(product.codeCategory))}${getProductSubCategory(product) ? ` • ${escapeHTML(getProductSubCategory(product))}` : ''} • ${escapeHTML(product.season || '')}</div>
-        <div class="muted">${hasDiscount(product) ? `خصم ${Math.round(toNumber(product.discountPercent))}% • ` : ''}سعر القطعة ${formatCurrency(getPiecePrice(product))} • سعر السيري ${formatCurrency(getDisplayPrice(product))} • ${escapeHTML(getSeriesLabel(product))}</div>
+      <div class="admin-product-result-content">
+        <div class="admin-product-result-head">
+          <div><span class="model-number-label">Model</span><strong class="model-number-value">${escapeHTML(product.model || '—')}</strong></div>
+          <span class="admin-visibility-badge ${visibleClass}">${visibleLabel}</span>
+        </div>
+        <h4>${escapeHTML(product.name || 'بدون اسم')}</h4>
+        <div class="admin-product-data-grid">
+          <div><span>المقاس</span><strong>${escapeHTML(product.sizes || '—')}</strong></div>
+          <div><span>السعر</span><strong>${formatCurrency(getPiecePrice(product))}</strong></div>
+          <div><span>السيري</span><strong>${escapeHTML(getSeriesQtyText(product) || '—')}</strong></div>
+          <div><span>الموسم</span><strong>${escapeHTML(product.season || '—')}</strong></div>
+          <div><span>التصنيف</span><strong>${escapeHTML(getProductSubCategory(product) || getCodeCategoryLabel(product.codeCategory) || '—')}</strong></div>
+          <div><span>الخصم</span><strong>${hasDiscount(product) ? `${Math.round(toNumber(product.discountPercent))}%` : '—'}</strong></div>
+        </div>
       </div>
-      <div class="admin-actions"><button class="ghost-btn" data-edit>تعديل</button><button class="ghost-btn" data-pin>${product.pinned ? 'إلغاء التثبيت' : 'تثبيت'}</button><button class="danger-btn" data-del>حذف</button></div>`;
+      <div class="admin-actions admin-product-result-actions">
+        <button class="ghost-btn" data-edit><i class="fa-solid fa-pen"></i><span>تعديل</span></button>
+        <button class="ghost-btn" data-pin><i class="fa-solid fa-thumbtack"></i><span>${product.pinned ? 'إلغاء التثبيت' : 'تثبيت'}</span></button>
+        <button class="danger-btn" data-del><i class="fa-solid fa-trash"></i><span>حذف</span></button>
+      </div>`;
     item.querySelector('[data-edit]').addEventListener('click', () => populateProductForm(product));
     item.querySelector('[data-pin]').addEventListener('click', () => togglePinned(product));
     item.querySelector('[data-del]').addEventListener('click', (event) => deleteProduct(product.id, event.currentTarget));
@@ -1987,7 +2116,13 @@ async function saveProduct() {
       await addDoc(collection(db, 'products'), { ...payload, createdAt: serverTimestamp() });
       showToast('تمت إضافة المنتج');
     }
+    const savedModel = model;
     resetProductForm();
+    state.adminProductSearch = savedModel;
+    state.adminProductShowAll = false;
+    if (el.adminProductSearchInput) el.adminProductSearchInput.value = savedModel;
+    activateAdminTab('productsManagerTab');
+    renderAdminProducts();
   } catch (error) {
     console.error(error);
     showToast('تعذر حفظ المنتج');
@@ -1996,7 +2131,7 @@ async function saveProduct() {
 
 function populateProductForm(product) {
   state.editingProductId = product.id;
-  el.productFormTitle.textContent = `تعديل ${product.name || ''}`;
+  el.productFormTitle.textContent = `تعديل موديل ${product.model || ''}`;
   el.productNameInput.value = product.name || '';
   el.productModelInput.value = product.model || '';
   el.productPriceInput.value = String(getPiecePrice(product));
@@ -2013,6 +2148,8 @@ function populateProductForm(product) {
   el.productImageUrlsInput.value = state.productImagesDraft.join('\n');
   renderProductPreview();
   openDrawer('admin');
+  activateAdminTab('productAddTab');
+  queueMicrotask(() => el.productModelInput?.focus());
 }
 
 function resetProductForm() {
@@ -2074,7 +2211,7 @@ async function deleteProduct(productId, button = null) {
     renderAdminProducts();
     applyFilters();
     renderStorefront();
-    showToast('تم حذف المنتج، وسيتم حذف صوره من Cloudinary تلقائيًا');
+    showToast('تم حذف المنتج نهائيًا');
   } catch (error) {
     console.error('Delete product failed:', error);
     showToast(getDeleteErrorMessage(error, 'المنتج'));
@@ -2083,7 +2220,7 @@ async function deleteProduct(productId, button = null) {
 
 function togglePinnedAdminFilter() {
   state.featuredOnlyAdmin = !state.featuredOnlyAdmin;
-  el.togglePinnedFilterBtn.textContent = state.featuredOnlyAdmin ? 'كل المنتجات' : 'المثبت فقط';
+  if (el.togglePinnedFilterBtn) el.togglePinnedFilterBtn.textContent = state.featuredOnlyAdmin ? 'إلغاء فلتر المثبت' : 'المثبت فقط';
   renderAdminProducts();
 }
 
@@ -3344,9 +3481,9 @@ function clearFilters() {
   const season = state.catalog.selectedSeason || '';
   const category = state.catalog.step === 'products' ? (state.catalog.selectedCategory || 'all') : 'all';
   const subCategory = state.catalog.step === 'products' ? (state.catalog.selectedSubCategory || 'all') : 'all';
-  state.filter = { search: '', category: category || 'all', subCategory: subCategory || 'all', season: season || 'all', offersOnly: false, sort: 'modelAsc' };
+  state.filter = { search: '', category: category || 'all', subCategory: subCategory || 'all', season: season || 'all', offersOnly: false, sort: 'featured' };
   el.searchInput.value = '';
-  el.sortFilter.value = 'modelAsc';
+  el.sortFilter.value = 'featured';
   resetRenderedProducts();
   applyFilters();
 }
@@ -3362,23 +3499,6 @@ function renderMoreProducts() {
 
 function buildProductSearchText(product) {
   return `${product.name || ''} ${product.model || ''} ${product.season || ''} ${product.sizes || ''} ${product.codeCategory || ''} ${getProductSubCategory(product)}`.toLowerCase();
-}
-
-function getModelSortParts(value) {
-  const raw = String(value ?? '').trim();
-  const normalized = raw.replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
-  const numericMatches = normalized.match(/\d+/g) || [];
-  const primary = numericMatches.length ? Number(numericMatches[0]) : Number.POSITIVE_INFINITY;
-  return { raw: normalized, primary };
-}
-
-function compareProductsByModel(a, b) {
-  const left = getModelSortParts(a?.model);
-  const right = getModelSortParts(b?.model);
-  if (left.primary !== right.primary) return left.primary - right.primary;
-  const natural = left.raw.localeCompare(right.raw, 'en', { numeric: true, sensitivity: 'base' });
-  if (natural) return natural;
-  return String(a?.name || '').localeCompare(String(b?.name || ''), 'ar', { numeric: true, sensitivity: 'base' });
 }
 
 function enrichProduct(product) {
