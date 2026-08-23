@@ -31,9 +31,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
-  <link rel="stylesheet" href="styles.css?v=35" />
+  <link rel="stylesheet" href="styles.css?v=36" />
   <script defer src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-  <script type="module" defer src="app.js?v=35"></script>
+  <script type="module" defer src="app.js?v=36"></script>
 <script type="application/ld+json" id="baseStructuredData">
 {
   "@context": "https://schema.org",
@@ -99,6 +99,14 @@
   <div class="ambient ambient-b"></div>
   <div id="overlay" class="overlay"></div>
   <div id="toast" class="toast"></div>
+
+  <div class="commerce-topbar" aria-label="معلومات المتجر">
+    <div class="shell commerce-topbar-inner">
+      <span><i class="fa-solid fa-boxes-stacked"></i> بيع بالجملة</span>
+      <span><i class="fa-solid fa-truck-fast"></i> شحن الطلبات</span>
+      <span><i class="fa-solid fa-headset"></i> دعم المبيعات</span>
+    </div>
+  </div>
 
   <header class="site-header">
     <div class="shell header-bar">
@@ -201,6 +209,28 @@
       </div>
     </section>
 
+    <section class="shell store-confidence-strip" aria-label="مزايا الطلب">
+      <div class="confidence-item"><i class="fa-solid fa-shirt"></i><div><strong>موديلات فعلية</strong><span>تفاصيل وصور ومقاسات لكل موديل</span></div></div>
+      <div class="confidence-item"><i class="fa-solid fa-bag-shopping"></i><div><strong>طلب مباشر</strong><span>أضف السيري للسلة وأرسل الطلب</span></div></div>
+      <div class="confidence-item"><i class="fa-solid fa-file-invoice"></i><div><strong>فاتورة فورية</strong><span>ملخص وفاتورة بعد تسجيل الطلب</span></div></div>
+    </section>
+
+    <section id="collectionsSection" class="shell commerce-section hidden" aria-labelledby="collectionsTitle">
+      <div class="commerce-section-head">
+        <div><span class="commerce-kicker">تسوق بسهولة</span><h2 id="collectionsTitle">الأقسام</h2></div>
+        <button id="collectionsCatalogBtn" class="text-link-btn" type="button">كل الكتالوج <i class="fa-solid fa-arrow-left"></i></button>
+      </div>
+      <div id="collectionsGrid" class="collections-grid"></div>
+    </section>
+
+    <section id="newArrivalsSection" class="shell commerce-section hidden" aria-labelledby="newArrivalsTitle">
+      <div class="commerce-section-head">
+        <div><span class="commerce-kicker">وصل حديثًا</span><h2 id="newArrivalsTitle">أحدث الموديلات</h2></div>
+        <button id="newArrivalsViewAllBtn" class="text-link-btn" type="button">عرض الكل <i class="fa-solid fa-arrow-left"></i></button>
+      </div>
+      <div id="newArrivalsRail" class="commerce-product-rail"></div>
+    </section>
+
     <section id="offersSection" class="shell home-offers-section hidden" aria-labelledby="offersSectionTitle">
       <div class="offers-section-head">
         <div>
@@ -233,6 +263,7 @@
           <div id="searchSuggestions" class="search-suggestions hidden" role="listbox" aria-label="اقتراحات البحث"></div>
         </div>
         <div class="toolbar-filters">
+          <button id="openFiltersBtn" class="soft-pill commerce-filter-btn" type="button"><i class="fa-solid fa-sliders"></i><span>تصفية</span><b id="activeFiltersCount" class="filter-count hidden">0</b></button>
           <select id="sortFilter" class="clean-select">
             <option value="featured">المثبت ثم الأحدث</option>
             <option value="newest">الأحدث</option>
@@ -252,6 +283,7 @@
         <p id="visibleCount">0 منتج</p>
       </div>
       <div class="section-actions">
+        <div id="activeFilterChips" class="active-filter-chips"></div>
         <button id="contactBtn" class="soft-pill alt"><i class="fa-solid fa-headset"></i><span>تواصل معنا</span></button>
       </div>
     </section>
@@ -297,6 +329,22 @@
     <i class="fa-brands fa-whatsapp"></i>
   </button>
 
+  <aside id="filterDrawer" class="drawer drawer-left filter-drawer">
+    <div class="drawer-head">
+      <div><h3>تصفية المنتجات</h3><span class="muted">اختر ما تريد عرضه</span></div>
+      <button id="closeFilters" class="icon-btn" type="button"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="filter-drawer-body">
+      <div class="filter-block"><strong>الموسم</strong><div id="filterSeasonList" class="filter-choice-grid"></div></div>
+      <div class="filter-block"><strong>التصنيف</strong><div id="filterCategoryList" class="filter-choice-grid"></div></div>
+      <label class="offer-toggle-row"><span><i class="fa-solid fa-tags"></i> العروض فقط</span><input id="filterOffersOnly" type="checkbox" /></label>
+    </div>
+    <div class="filter-drawer-footer">
+      <button id="resetDrawerFiltersBtn" class="ghost-btn" type="button">مسح التصفية</button>
+      <button id="applyDrawerFiltersBtn" class="primary-btn" type="button">عرض النتائج</button>
+    </div>
+  </aside>
+
   <aside id="cartDrawer" class="drawer drawer-left">
     <div class="drawer-head">
       <div>
@@ -306,9 +354,13 @@
       <button id="closeCart" class="icon-btn"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <div id="cartItems" class="stack-list"></div>
-    <div class="drawer-summary">
-      <div class="summary-row"><span>الإجمالي</span><strong id="cartTotal">0 ج.م</strong></div>
-      <button id="checkoutBtn" class="primary-btn full">إتمام الطلب</button>
+    <div class="drawer-summary commerce-cart-summary">
+      <div class="summary-row"><span>عدد السيري</span><strong id="cartSeriesTotal">0</strong></div>
+      <div class="summary-row"><span>إجمالي القطع</span><strong id="cartPiecesTotal">0</strong></div>
+      <div class="summary-row cart-grand-total"><span>إجمالي الطلب</span><strong id="cartTotal">0 ج.م</strong></div>
+      <div id="cartAvailabilityNote" class="cart-availability-note hidden"></div>
+      <button id="checkoutBtn" class="primary-btn full"><i class="fa-solid fa-lock"></i><span>إتمام الطلب</span></button>
+      <button id="continueShoppingBtn" class="ghost-btn full" type="button">متابعة التسوق</button>
     </div>
   </aside>
 
@@ -445,6 +497,7 @@
             <div class="field"><label>شارة إضافية</label><input id="productBadgeInput" type="text" placeholder="جديد" /></div>
             <div class="field"><label>تثبيت</label><select id="productPinnedInput"><option value="true">نعم</option><option value="false">لا</option></select></div>
             <div class="field"><label>إظهار في المتجر</label><select id="productVisibleInput"><option value="true">نعم</option><option value="false">لا</option></select></div>
+            <div class="field"><label>حالة التوفر</label><select id="productStockStatusInput"><option value="available">متوفر</option><option value="limited">كمية محدودة</option><option value="out">غير متوفر</option></select></div>
             <div class="field full"><label>الوصف</label><textarea id="productDescriptionInput" rows="4"></textarea></div>
           </div>
           <div class="field full"><label>صور المنتج</label><textarea id="productImageUrlsInput" rows="4" placeholder="كل رابط صورة في سطر مستقل"></textarea></div>
@@ -603,6 +656,7 @@
           <span>سعر القطعة</span>
           <strong id="quickProductPrice">0 ج.م</strong>
         </div>
+        <div id="quickProductStock" class="stock-status available"><i class="fa-solid fa-circle-check"></i><span>متوفر</span></div>
         <div class="quick-product-meta-grid">
           <div class="quick-meta-item"><span>المقاسات</span><strong id="quickProductSizes">—</strong></div>
           <div class="quick-meta-item"><span>السيري</span><strong id="quickProductSeries">—</strong></div>
@@ -616,14 +670,17 @@
   </div>
 
   <div id="checkoutModal" class="modal">
-    <div class="modal-box">
+    <div class="modal-box checkout-store-box">
       <button class="icon-btn modal-close" data-close="checkoutModal"><i class="fa-solid fa-xmark"></i></button>
-      <div class="modal-head"><h3>إتمام الطلب</h3></div>
-      <div class="grid-2">
-        <div class="field"><label>اسم العميل</label><input id="customerNameInput" type="text" /></div>
-        <div class="field"><label>الهاتف</label><input id="customerPhoneInput" type="text" /></div>
-        <div class="field"><label>المدينة</label><input id="customerCityInput" type="text" /></div>
-        <div class="field"><label>العنوان</label><input id="customerAddressInput" type="text" /></div>
+      <div class="modal-head checkout-head"><div><span class="commerce-kicker">الخطوة الأخيرة</span><h3>إتمام الطلب</h3><p class="muted">راجع الموديلات وأدخل بيانات الاستلام.</p></div></div>
+      <div class="checkout-store-grid">
+        <div class="checkout-customer-panel">
+          <div class="checkout-panel-title"><span>1</span><strong>بيانات العميل والاستلام</strong></div>
+          <div class="grid-2">
+        <div class="field"><label>اسم العميل</label><input id="customerNameInput" type="text" autocomplete="name" /></div>
+        <div class="field"><label>الهاتف</label><input id="customerPhoneInput" type="tel" inputmode="tel" autocomplete="tel" /></div>
+        <div class="field"><label>المدينة</label><input id="customerCityInput" type="text" autocomplete="address-level2" /></div>
+        <div class="field"><label>العنوان</label><input id="customerAddressInput" type="text" autocomplete="street-address" /></div>
         <div class="field">
           <label>طريقة الدفع</label>
           <select id="paymentMethodInput">
@@ -646,9 +703,21 @@
             <option>بوليصة شحن</option>
           </select>
         </div>
-        <div class="field full"><label>ملاحظات</label><textarea id="customerNotesInput" rows="3"></textarea></div>
+        <div class="field full"><label>ملاحظات</label><textarea id="customerNotesInput" rows="3" placeholder="أي تفاصيل مهمة للطلب"></textarea></div>
+          </div>
+        </div>
+        <aside class="checkout-review-panel">
+          <div class="checkout-panel-title"><span>2</span><strong>مراجعة الطلب</strong></div>
+          <div id="checkoutSummaryItems" class="checkout-summary-items"></div>
+          <div class="checkout-summary-totals">
+            <div><span>السيري</span><strong id="checkoutSeriesCount">0</strong></div>
+            <div><span>القطع</span><strong id="checkoutPiecesCount">0</strong></div>
+            <div class="checkout-total-line"><span>الإجمالي</span><strong id="checkoutTotal">0 ج.م</strong></div>
+          </div>
+          <button id="submitOrderBtn" class="primary-btn full checkout-submit-btn"><i class="fa-solid fa-paper-plane"></i><span>تأكيد وإرسال الطلب</span></button>
+          <p class="checkout-security-note"><i class="fa-solid fa-shield-halved"></i> يتم تسجيل الطلب مباشرة لدى المتجر.</p>
+        </aside>
       </div>
-      <button id="submitOrderBtn" class="primary-btn full">إرسال الطلب</button>
     </div>
   </div>
 

@@ -16,7 +16,7 @@ const ADMIN_EMAILS = ['admin@sestem.local', 'admin@system.local'];
 const CLOUDINARY_CLOUD_NAME = 'dthtzvypx';
 const CART_STORAGE_KEY = 'joodkids_cart_wholesale_piece_v3_fast';
 const PRODUCT_PAGE_SIZE = 24;
-const APP_SW_VERSION = 'joodkids-premium-v35';
+const APP_SW_VERSION = 'joodkids-store-v36';
 const APP_ROOT_URL = new URL('./', window.location.href);
 const SITE_URL = APP_ROOT_URL.href;
 const OPEN_CART_FLAG_KEY = 'joodkids_open_cart_after_nav';
@@ -100,6 +100,7 @@ const db = getFirestore(app);
 
 const state = {
   products: [],
+  productsLoaded: false,
   orders: [],
   categories: [],
   company: { ...DEFAULT_COMPANY },
@@ -149,6 +150,12 @@ const el = {
   heroShopBtn: id('heroShopBtn'),
   heroWhatsappBtn: id('heroWhatsappBtn'),
   heroShowcase: id('heroShowcase'),
+  collectionsSection: id('collectionsSection'),
+  collectionsGrid: id('collectionsGrid'),
+  collectionsCatalogBtn: id('collectionsCatalogBtn'),
+  newArrivalsSection: id('newArrivalsSection'),
+  newArrivalsRail: id('newArrivalsRail'),
+  newArrivalsViewAllBtn: id('newArrivalsViewAllBtn'),
   brandName: id('brandName'),
   brandTagline: id('brandTagline'),
   footerBrandName: id('footerBrandName'),
@@ -174,6 +181,16 @@ const el = {
   searchInput: id('searchInput'),
   searchSuggestions: id('searchSuggestions'),
   sortFilter: id('sortFilter'),
+  openFiltersBtn: id('openFiltersBtn'),
+  activeFiltersCount: id('activeFiltersCount'),
+  activeFilterChips: id('activeFilterChips'),
+  filterDrawer: id('filterDrawer'),
+  closeFilters: id('closeFilters'),
+  filterSeasonList: id('filterSeasonList'),
+  filterCategoryList: id('filterCategoryList'),
+  filterOffersOnly: id('filterOffersOnly'),
+  resetDrawerFiltersBtn: id('resetDrawerFiltersBtn'),
+  applyDrawerFiltersBtn: id('applyDrawerFiltersBtn'),
   clearFiltersBtn: id('clearFiltersBtn'),
   visibleCount: id('visibleCount'),
   productsGrid: id('productsGrid'),
@@ -211,6 +228,10 @@ const el = {
   cartItems: id('cartItems'),
   cartItemsCount: id('cartItemsCount'),
   cartTotal: id('cartTotal'),
+  cartSeriesTotal: id('cartSeriesTotal'),
+  cartPiecesTotal: id('cartPiecesTotal'),
+  cartAvailabilityNote: id('cartAvailabilityNote'),
+  continueShoppingBtn: id('continueShoppingBtn'),
   checkoutBtn: id('checkoutBtn'),
   closeAdmin: id('closeAdmin'),
   adminLoginSection: id('adminLoginSection'),
@@ -286,6 +307,7 @@ const el = {
   productBadgeInput: id('productBadgeInput'),
   productPinnedInput: id('productPinnedInput'),
   productVisibleInput: id('productVisibleInput'),
+  productStockStatusInput: id('productStockStatusInput'),
   productDescriptionInput: id('productDescriptionInput'),
   productImageUrlsInput: id('productImageUrlsInput'),
   productImagesInput: id('productImagesInput'),
@@ -328,6 +350,7 @@ const el = {
   quickProductSizes: id('quickProductSizes'),
   quickProductCategory: id('quickProductCategory'),
   quickProductSeason: id('quickProductSeason'),
+  quickProductStock: id('quickProductStock'),
   quickProductOpenPage: id('quickProductOpenPage'),
   quickProductAddBtn: id('quickProductAddBtn'),
   customerNameInput: id('customerNameInput'),
@@ -337,6 +360,10 @@ const el = {
   paymentMethodInput: id('paymentMethodInput'),
   shippingMethodInput: id('shippingMethodInput'),
   customerNotesInput: id('customerNotesInput'),
+  checkoutSummaryItems: id('checkoutSummaryItems'),
+  checkoutSeriesCount: id('checkoutSeriesCount'),
+  checkoutPiecesCount: id('checkoutPiecesCount'),
+  checkoutTotal: id('checkoutTotal'),
   submitOrderBtn: id('submitOrderBtn'),
   singleAssetUploader: id('singleAssetUploader'),
   uploadTriggers: [...document.querySelectorAll('.upload-trigger')],
@@ -386,12 +413,19 @@ function bindUI() {
   el.navContactBtn?.addEventListener('click', () => openModal('contactModal'));
   el.heroShopBtn?.addEventListener('click', () => el.catalogFlowStage?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   el.heroWhatsappBtn?.addEventListener('click', openWhatsAppDirect);
+  el.collectionsCatalogBtn?.addEventListener('click', () => goToSeasonsView({ closeAfter:false }));
+  el.newArrivalsViewAllBtn?.addEventListener('click', () => { state.filter.sort='newest'; if (el.sortFilter) el.sortFilter.value='newest'; activateCatalogProducts('', 'all', { preserveSort:true }); });
   el.mobileHomeBtn?.addEventListener('click', () => { closeDrawers(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
   el.mobileSearchBtn?.addEventListener('click', () => { closeDrawers(); el.toolbarWrap?.scrollIntoView({ behavior: 'smooth', block: 'center' }); setTimeout(() => el.searchInput?.focus(), 280); });
   el.mobileOffersBtn?.addEventListener('click', openOffersExperience);
   el.mobileCartBtn?.addEventListener('click', () => openDrawer('cart'));
   el.cartToggle.addEventListener('click', () => openDrawer('cart'));
   el.closeCart.addEventListener('click', closeDrawers);
+  el.openFiltersBtn?.addEventListener('click', () => { renderFilterDrawer(); openDrawer('filter'); });
+  el.closeFilters?.addEventListener('click', closeDrawers);
+  el.resetDrawerFiltersBtn?.addEventListener('click', () => { resetAllCommerceFilters(); renderFilterDrawer(); });
+  el.applyDrawerFiltersBtn?.addEventListener('click', () => { closeDrawers(); el.productsHeadingRow?.scrollIntoView({ behavior:'smooth', block:'start' }); });
+  el.continueShoppingBtn?.addEventListener('click', () => { closeDrawers(); el.productsHeadingRow?.scrollIntoView({ behavior:'smooth', block:'start' }); });
   el.closeAdmin.addEventListener('click', closeDrawers);
   // Keep the admin drawer isolated without binding duplicate touch/pointer handlers.
   el.adminDrawer.addEventListener('click', (event) => {
@@ -435,6 +469,8 @@ function bindUI() {
   bindExternalLinkButton(el.modalShopMapLink, () => state.company.shopMap);
   el.checkoutBtn.addEventListener('click', () => {
     if (!state.cart.length) return showToast('السلة فارغة');
+    if (!validateCartAvailability()) return;
+    renderCheckoutSummary();
     openModal('checkoutModal');
   });
   el.submitOrderBtn.addEventListener('click', submitOrder);
@@ -562,6 +598,7 @@ function activateAdminTab(tabId) {
 function subscribeData() {
   onSnapshot(collection(db, 'products'), (snapshot) => {
     state.products = snapshot.docs.map((entry) => enrichProduct({ id: entry.id, ...entry.data() }));
+    state.productsLoaded = true;
     state.products.sort((a, b) => toMillis(b.createdAt || b.updatedAt) - toMillis(a.createdAt || a.updatedAt));
     resetRenderedProducts();
     scheduleRenderEverything();
@@ -693,6 +730,8 @@ function renderStorefront() {
   el.menuInstallBtn.classList.toggle('hidden', !showInstall);
   renderPaymentIcons();
   renderHeroShowcase(visibleProducts);
+  renderFeaturedCollections(visibleProducts);
+  renderNewArrivals(visibleProducts);
   renderOffersSection(visibleProducts);
   syncSiteMeta();
   syncDynamicStructuredData();
@@ -719,6 +758,108 @@ function renderHeroShowcase(products = []) {
     const product = state.products.find((item) => String(item.id) === String(button.dataset.heroProduct));
     if (product) openQuickProduct(product);
   }));
+}
+
+function renderFeaturedCollections(products = getVisibleProducts()) {
+  if (!el.collectionsSection || !el.collectionsGrid) return;
+  const groups = new Map();
+  products.forEach((product) => {
+    const key = String(product.codeCategory || deriveCodeCategory(product.model) || '').trim();
+    if (!key) return;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(product);
+  });
+  const collections = [...groups.entries()]
+    .map(([key, items]) => ({ key, items, label: getCodeCategoryLabel(key), image: getRepresentativeImage(items) }))
+    .sort((a,b) => b.items.length - a.items.length)
+    .slice(0, 6);
+  el.collectionsSection.classList.toggle('hidden', !collections.length);
+  el.collectionsGrid.innerHTML = '';
+  collections.forEach((collection) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'collection-store-card';
+    button.innerHTML = `<span class="collection-store-media">${collection.image ? `<img src="${escapeAttr(collection.image)}" alt="${escapeAttr(collection.label)}" loading="lazy" decoding="async">` : '<i class="fa-solid fa-shirt"></i>'}</span><span class="collection-store-copy"><strong>${escapeHTML(collection.label)}</strong><small>${collection.items.length.toLocaleString('en-US')} موديل</small></span><i class="fa-solid fa-arrow-left collection-arrow"></i>`;
+    button.addEventListener('click', () => activateCatalogProducts('', collection.key, { closeAfter:false }));
+    el.collectionsGrid.appendChild(button);
+  });
+}
+
+function renderNewArrivals(products = getVisibleProducts()) {
+  if (!el.newArrivalsSection || !el.newArrivalsRail) return;
+  const latest = [...products]
+    .sort((a,b) => toMillis(b.createdAt || b.updatedAt) - toMillis(a.createdAt || a.updatedAt))
+    .slice(0, 10);
+  el.newArrivalsSection.classList.toggle('hidden', !latest.length);
+  el.newArrivalsRail.innerHTML = '';
+  latest.forEach((product) => {
+    const image = getProductThumbUrl(normalizeImageUrls(product.imageUrls)[0] || placeholderImage(product.name || product.model || 'Jood Kids'));
+    const item = document.createElement('article');
+    item.className = 'commerce-mini-product';
+    const stock = getStockStatus(product);
+    item.innerHTML = `<a class="commerce-mini-media" href="${escapeAttr(getProductPageUrl(product))}"><img src="${escapeAttr(image)}" alt="${escapeAttr(buildProductAlt(product))}" loading="lazy" decoding="async">${hasDiscount(product) ? `<span class="commerce-mini-offer">-${Math.round(toNumber(product.discountPercent))}%</span>` : ''}</a><div class="commerce-mini-body"><small>Model ${escapeHTML(product.model || '-')}</small><a class="commerce-mini-title" href="${escapeAttr(getProductPageUrl(product))}">${escapeHTML(product.name || `موديل ${product.model || ''}`)}</a><div class="commerce-mini-bottom"><strong>${formatCurrency(getDiscountedPiecePrice(product))}</strong><span class="mini-stock ${stock.key}">${escapeHTML(stock.label)}</span></div></div>`;
+    el.newArrivalsRail.appendChild(item);
+  });
+}
+
+function resetAllCommerceFilters() {
+  state.catalog.step = 'products';
+  state.catalog.selectedSeason = '';
+  state.catalog.selectedCategory = 'all';
+  state.catalog.selectedSubCategory = 'all';
+  state.filter = { search:'', category:'all', subCategory:'all', season:'all', offersOnly:false, sort:'featured' };
+  if (el.searchInput) el.searchInput.value='';
+  if (el.sortFilter) el.sortFilter.value='featured';
+  resetRenderedProducts();
+  applyFilters();
+  renderCatalogFlow();
+}
+
+function renderFilterDrawer() {
+  if (!el.filterDrawer) return;
+  const makeChoice = (label, active, onClick) => {
+    const btn = document.createElement('button');
+    btn.type='button';
+    btn.className = `filter-choice${active ? ' active' : ''}`;
+    btn.textContent = label;
+    btn.addEventListener('click', () => { onClick(); renderFilterDrawer(); });
+    return btn;
+  };
+  if (el.filterSeasonList) {
+    el.filterSeasonList.innerHTML='';
+    el.filterSeasonList.appendChild(makeChoice('كل المواسم', state.filter.season === 'all', () => { state.filter.season='all'; state.catalog.selectedSeason=''; resetRenderedProducts(); applyFilters(); }));
+    getSeasonOptions().forEach((season) => el.filterSeasonList.appendChild(makeChoice(season, state.filter.season === season, () => { state.filter.season=season; state.catalog.selectedSeason=season; resetRenderedProducts(); applyFilters(); })));
+  }
+  if (el.filterCategoryList) {
+    el.filterCategoryList.innerHTML='';
+    el.filterCategoryList.appendChild(makeChoice('كل التصنيفات', state.filter.category === 'all', () => { state.filter.category='all'; state.filter.subCategory='all'; resetRenderedProducts(); applyFilters(); }));
+    getCodeCategoryKeys().forEach((key) => el.filterCategoryList.appendChild(makeChoice(getCodeCategoryLabel(key), state.filter.category === key, () => { state.filter.category=key; state.filter.subCategory='all'; resetRenderedProducts(); applyFilters(); })));
+  }
+  if (el.filterOffersOnly) {
+    el.filterOffersOnly.checked = Boolean(state.filter.offersOnly);
+    el.filterOffersOnly.onchange = () => { state.filter.offersOnly = el.filterOffersOnly.checked; resetRenderedProducts(); applyFilters(); renderFilterDrawer(); };
+  }
+  renderActiveFilters();
+}
+
+function renderActiveFilters() {
+  const filters = [];
+  if (state.filter.season !== 'all') filters.push({ label: state.filter.season, clear: () => { state.filter.season='all'; state.catalog.selectedSeason=''; } });
+  if (state.filter.category !== 'all') filters.push({ label: getCodeCategoryLabel(state.filter.category), clear: () => { state.filter.category='all'; state.filter.subCategory='all'; } });
+  if (state.filter.subCategory !== 'all') filters.push({ label: state.filter.subCategory, clear: () => { state.filter.subCategory='all'; } });
+  if (state.filter.offersOnly) filters.push({ label: 'العروض', clear: () => { state.filter.offersOnly=false; } });
+  if (state.filter.search) filters.push({ label: `بحث: ${state.filter.search}`, clear: () => { state.filter.search=''; if (el.searchInput) el.searchInput.value=''; } });
+  if (el.activeFiltersCount) {
+    el.activeFiltersCount.textContent = String(filters.length);
+    el.activeFiltersCount.classList.toggle('hidden', !filters.length);
+  }
+  if (!el.activeFilterChips) return;
+  el.activeFilterChips.innerHTML='';
+  filters.slice(0,3).forEach((filter) => {
+    const btn=document.createElement('button'); btn.type='button'; btn.className='active-filter-chip'; btn.innerHTML=`<span>${escapeHTML(filter.label)}</span><i class="fa-solid fa-xmark"></i>`;
+    btn.addEventListener('click', () => { filter.clear(); resetRenderedProducts(); applyFilters(); });
+    el.activeFilterChips.appendChild(btn);
+  });
 }
 
 function renderOffersSection(products = getVisibleProducts()) {
@@ -1331,6 +1472,7 @@ function applyFilters() {
   state.filteredProducts = items;
   renderProducts();
   renderMenu();
+  renderActiveFilters();
   renderSeoCatalog();
   syncDynamicStructuredData();
   syncSiteMeta();
@@ -1347,67 +1489,47 @@ function renderProducts() {
   const fragment = document.createDocumentFragment();
   renderedItems.forEach((product, index) => {
     const card = document.createElement('article');
-    card.className = 'product-card product-card--minimal';
+    card.className = 'product-card product-card--store';
     const urls = normalizeImageUrls(product.imageUrls);
     const originalUrl = urls[0] || placeholderImage(product.name || product.model || 'Jood Kids');
     const thumbUrl = getProductThumbUrl(originalUrl);
     const productAlt = buildProductAlt(product);
     const productLabel = product.name || `موديل ${product.model || ''}`.trim() || 'منتج';
+    const productUrl = getProductPageUrl(product);
+    const stock = getStockStatus(product);
+    const unavailable = stock.key === 'out';
     card.id = getProductAnchorId(product);
     card.setAttribute('data-product-id', String(product.id || ''));
     card.setAttribute('data-model', String(product.model || ''));
-    card.setAttribute('role', 'button');
-    card.setAttribute('tabindex', '0');
-    card.setAttribute('aria-label', `فتح تفاصيل ${productLabel}`);
     const cardBadge = hasDiscount(product)
       ? `<span class="store-product-badge discount">خصم ${Math.round(toNumber(product.discountPercent))}%</span>`
       : (product.badgeText ? `<span class="store-product-badge">${escapeHTML(product.badgeText)}</span>` : '');
     card.innerHTML = `
-      <div class="product-media">
+      <a class="product-media product-media-link" href="${escapeAttr(productUrl)}" aria-label="فتح ${escapeAttr(productLabel)}">
         <img src="${escapeAttr(thumbUrl)}" alt="${escapeAttr(productAlt)}" title="${escapeAttr(productAlt)}" loading="lazy" decoding="async" fetchpriority="${index < 4 ? 'high' : 'low'}" />
         ${cardBadge}
-      </div>
+        <span class="stock-badge ${stock.key}">${escapeHTML(stock.label)}</span>
+      </a>
       <div class="product-body">
         <div class="product-heading">
-          <h3 class="product-title"></h3>
-          <div class="product-model-line"></div>
+          <a class="product-title product-title-link" href="${escapeAttr(productUrl)}">${escapeHTML(product.name || 'بدون اسم')}</a>
+          <div class="product-model-line">${escapeHTML(getProductSubCategory(product) ? `Model ${product.model || '-'} • ${getProductSubCategory(product)}` : `Model ${product.model || '-'}`)}</div>
         </div>
-        <div class="piece-price-row">
-          <span class="piece-price-label">سعر القطعة</span>
-          <strong class="piece-price-value"></strong>
+        <div class="store-price-block">
+          <div class="piece-price-row${hasDiscount(product) ? ' has-offer' : ''}">
+            <span class="piece-price-label">سعر القطعة</span>
+            <strong class="piece-price-value">${formatCurrency(getDiscountedPiecePrice(product))}</strong>
+            ${hasDiscount(product) ? `<del class="piece-price-old">${formatCurrency(getPiecePrice(product))}</del>` : ''}
+          </div>
+          <div class="series-price-line"><span>${escapeHTML(getSeriesLabel(product))}</span><strong>${formatCurrency(getDisplayPrice(product))}</strong></div>
         </div>
-        <div class="card-actions single-action">
-          <button class="primary-btn add-btn" aria-label="أضف ${escapeAttr(productLabel)} إلى السلة"><i class="fa-solid fa-cart-plus"></i><span>أضف سيري</span></button>
+        <div class="card-actions store-card-actions">
+          <button class="primary-btn add-btn" ${unavailable ? 'disabled' : ''} aria-label="أضف ${escapeAttr(productLabel)} إلى السلة"><i class="fa-solid ${unavailable ? 'fa-circle-xmark' : 'fa-cart-plus'}"></i><span>${unavailable ? 'غير متوفر' : 'أضف للسلة'}</span></button>
+          <button class="quick-view-btn" type="button" aria-label="عرض سريع"><i class="fa-regular fa-eye"></i></button>
         </div>
       </div>`;
-    card.querySelector('.product-title').textContent = product.name || 'بدون اسم';
-    card.querySelector('.product-model-line').textContent = getProductSubCategory(product) ? `موديل ${product.model || '-'} • ${getProductSubCategory(product)}` : `موديل ${product.model || '-'}`;
-    const piecePriceRow = card.querySelector('.piece-price-row');
-    const piecePriceValue = card.querySelector('.piece-price-value');
-    if (hasDiscount(product)) {
-      piecePriceRow.classList.add('has-offer');
-      piecePriceValue.textContent = formatCurrency(getDiscountedPiecePrice(product));
-      const oldPrice = document.createElement('del');
-      oldPrice.className = 'piece-price-old';
-      oldPrice.textContent = formatCurrency(getPiecePrice(product));
-      piecePriceRow.appendChild(oldPrice);
-    } else {
-      piecePriceValue.textContent = formatCurrency(getPiecePrice(product));
-    }
-    const open = () => openQuickProduct(product);
-    card.addEventListener('click', open);
-    card.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        open();
-      }
-    });
-    const addBtn = card.querySelector('.add-btn');
-    addBtn.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      addToCart(product.id);
-    });
+    card.querySelector('.add-btn').addEventListener('click', (event) => { event.preventDefault(); event.stopPropagation(); addToCart(product.id); });
+    card.querySelector('.quick-view-btn').addEventListener('click', (event) => { event.preventDefault(); event.stopPropagation(); openQuickProduct(product); });
     fragment.appendChild(card);
   });
   el.productsGrid.appendChild(fragment);
@@ -1576,7 +1698,7 @@ function syncDynamicStructuredData() {
         '@type': 'Offer',
         priceCurrency: 'EGP',
         price: String(getDisplayPrice(product)),
-        availability: 'https://schema.org/InStock',
+        availability: isOutOfStock(product) ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock',
         url: getProductPageUrl(product)
       }
     }))
@@ -1587,40 +1709,68 @@ function syncDynamicStructuredData() {
 function renderCart() {
   saveLocalJSON(CART_STORAGE_KEY, state.cart);
   const count = state.cart.reduce((sum, item) => sum + item.qty, 0);
+  const pieces = state.cart.reduce((sum, item) => sum + (getPiecesPerSeries(item) * item.qty), 0);
   el.cartCount.textContent = String(count);
   if (el.mobileCartCount) el.mobileCartCount.textContent = String(count);
   el.cartItemsCount.textContent = getSeriesCountLabel(count);
+  if (el.cartSeriesTotal) el.cartSeriesTotal.textContent = String(count);
+  if (el.cartPiecesTotal) el.cartPiecesTotal.textContent = String(pieces);
   el.cartItems.innerHTML = '';
   if (!state.cart.length) {
-    el.cartItems.innerHTML = '<div class="cart-item"><div class="muted">السلة فارغة</div></div>';
+    el.cartItems.innerHTML = '<div class="commerce-empty-cart"><i class="fa-solid fa-bag-shopping"></i><strong>السلة فارغة</strong><span>أضف الموديلات التي تريد طلبها.</span></div>';
     el.cartTotal.textContent = formatCurrency(0);
+    if (el.checkoutBtn) el.checkoutBtn.disabled = true;
+    if (el.cartAvailabilityNote) el.cartAvailabilityNote.classList.add('hidden');
+    renderCheckoutSummary();
     return;
   }
+  if (el.checkoutBtn) el.checkoutBtn.disabled = false;
   let total = 0;
+  let blockedCount = 0;
   state.cart.forEach((item) => {
     total += toNumber(item.unitPrice) * item.qty;
+    const currentProduct = state.productsLoaded ? state.products.find((product) => String(product.id) === String(item.id)) : null;
+    const blocked = state.productsLoaded && (!currentProduct || currentProduct.visible === false || isOutOfStock(currentProduct));
+    if (blocked) blockedCount += 1;
     const card = document.createElement('div');
-    card.className = 'cart-item';
+    card.className = `cart-item commerce-cart-item${blocked ? ' cart-item-blocked' : ''}`;
     card.innerHTML = `
       <img class="cart-thumb" src="${escapeAttr(getMiniImageUrl(item.imageUrl || placeholderImage(item.name || 'Jood Kids')))}" alt="${escapeAttr(buildProductAlt(item))}" loading="lazy" decoding="async" />
-      <div>
-        <h4>${escapeHTML(item.name || '')}</h4>
-        <div class="muted">موديل ${escapeHTML(item.model || '')}</div>
-        <div class="muted">${escapeHTML(getSeriesLabel(item))}</div>
-        <div class="muted">سعر القطعة ${formatCurrency(getPiecePrice(item))}</div>
-        <strong>سعر السيري ${formatCurrency(toNumber(item.unitPrice))}</strong>
-      </div>
-      <div class="qty-box">
-        <button data-action="plus">+</button>
-        <span>${item.qty}</span>
-        <button data-action="minus">-</button>
+      <div class="cart-product-copy">
+        <div class="cart-item-top"><div><h4>${escapeHTML(item.name || '')}</h4><div class="muted">Model ${escapeHTML(item.model || '')} • ${escapeHTML(getSeriesLabel(item))}</div>${blocked ? '<span class="cart-stock-warning">غير متوفر للطلب الآن</span>' : ''}</div><button class="cart-remove-btn" type="button" aria-label="حذف"><i class="fa-solid fa-trash-can"></i></button></div>
+        <div class="cart-line-price"><span>سعر السيري</span><strong>${formatCurrency(toNumber(item.unitPrice))}</strong></div>
+        <div class="cart-line-bottom"><div class="qty-box"><button data-action="plus">+</button><span>${item.qty}</span><button data-action="minus">-</button></div><strong>${formatCurrency(toNumber(item.unitPrice) * item.qty)}</strong></div>
       </div>`;
     card.querySelector('[data-action="plus"]').addEventListener('click', () => changeCartQty(item.id, 1));
     card.querySelector('[data-action="minus"]').addEventListener('click', () => changeCartQty(item.id, -1));
+    card.querySelector('.cart-remove-btn').addEventListener('click', () => { state.cart = state.cart.filter((entry) => entry.id !== item.id); renderCart(); showToast('تم حذف الموديل من السلة'); });
     card.querySelector('.cart-thumb').addEventListener('click', () => openGallery(item.imageUrl ? [item.imageUrl] : [placeholderImage(item.name || 'Jood Kids')], 0));
     el.cartItems.appendChild(card);
   });
   el.cartTotal.textContent = formatCurrency(total);
+  if (el.cartAvailabilityNote) {
+    el.cartAvailabilityNote.classList.toggle('hidden', blockedCount === 0);
+    el.cartAvailabilityNote.textContent = blockedCount ? `${blockedCount} موديل في السلة يحتاج مراجعة أو حذف قبل إتمام الطلب.` : '';
+  }
+  if (el.checkoutBtn) el.checkoutBtn.disabled = blockedCount > 0;
+  renderCheckoutSummary();
+}
+
+function renderCheckoutSummary() {
+  if (!el.checkoutSummaryItems) return;
+  el.checkoutSummaryItems.innerHTML = '';
+  let total = 0, series = 0, pieces = 0;
+  state.cart.forEach((item) => {
+    const lineTotal = toNumber(item.unitPrice) * item.qty;
+    total += lineTotal; series += item.qty; pieces += getPiecesPerSeries(item) * item.qty;
+    const row = document.createElement('div'); row.className='checkout-summary-item';
+    row.innerHTML = `<img src="${escapeAttr(getMiniImageUrl(item.imageUrl || placeholderImage(item.name || 'Jood Kids')))}" alt=""><div><strong>${escapeHTML(item.name || `Model ${item.model || ''}`)}</strong><span>Model ${escapeHTML(item.model || '-')} • ${item.qty} سيري</span></div><b>${formatCurrency(lineTotal)}</b>`;
+    el.checkoutSummaryItems.appendChild(row);
+  });
+  if (!state.cart.length) el.checkoutSummaryItems.innerHTML='<div class="muted">لا توجد موديلات في السلة.</div>';
+  if (el.checkoutSeriesCount) el.checkoutSeriesCount.textContent=String(series);
+  if (el.checkoutPiecesCount) el.checkoutPiecesCount.textContent=String(pieces);
+  if (el.checkoutTotal) el.checkoutTotal.textContent=formatCurrency(total);
 }
 
 function renderAdminForms() {
@@ -1816,6 +1966,7 @@ function renderAdminProducts() {
           <div><span>الموسم</span><strong>${escapeHTML(product.season || '—')}</strong></div>
           <div><span>التصنيف</span><strong>${escapeHTML(getProductSubCategory(product) || getCodeCategoryLabel(product.codeCategory) || '—')}</strong></div>
           <div><span>الخصم</span><strong>${hasDiscount(product) ? `${Math.round(toNumber(product.discountPercent))}%` : '—'}</strong></div>
+          <div><span>التوفر</span><strong class="admin-stock-text ${getStockStatus(product).key}">${escapeHTML(getStockStatus(product).label)}</strong></div>
         </div>
       </div>
       <div class="admin-actions admin-product-result-actions">
@@ -1886,6 +2037,7 @@ function duplicateProduct(product) {
   el.productBadgeInput.value = product.badgeText || '';
   el.productPinnedInput.value = String(Boolean(product.pinned));
   el.productVisibleInput.value = String(product.visible !== false);
+  if (el.productStockStatusInput) el.productStockStatusInput.value = normalizeStockStatus(product.stockStatus);
   el.productDescriptionInput.value = product.description || '';
   state.productImagesDraft = normalizeImageUrls(product.imageUrls);
   el.productImageUrlsInput.value = state.productImagesDraft.join('\n');
@@ -2302,6 +2454,7 @@ async function saveProduct() {
     badgeText: el.productBadgeInput.value.trim(),
     pinned: el.productPinnedInput.value === 'true',
     visible: el.productVisibleInput.value === 'true',
+    stockStatus: normalizeStockStatus(el.productStockStatusInput?.value),
     description: el.productDescriptionInput.value.trim(),
     codeCategory: deriveCodeCategory(model),
     imageUrls: normalizeImageUrls(state.productImagesDraft),
@@ -2342,6 +2495,7 @@ function populateProductForm(product) {
   el.productBadgeInput.value = product.badgeText || '';
   el.productPinnedInput.value = String(Boolean(product.pinned));
   el.productVisibleInput.value = String(product.visible !== false);
+  if (el.productStockStatusInput) el.productStockStatusInput.value = normalizeStockStatus(product.stockStatus);
   el.productDescriptionInput.value = product.description || '';
   state.productImagesDraft = normalizeImageUrls(product.imageUrls);
   el.productImageUrlsInput.value = state.productImagesDraft.join('\n');
@@ -2365,6 +2519,7 @@ function resetProductForm() {
   el.productBadgeInput.value = '';
   el.productPinnedInput.value = 'true';
   el.productVisibleInput.value = 'true';
+  if (el.productStockStatusInput) el.productStockStatusInput.value = 'available';
   el.productDescriptionInput.value = '';
   el.productImageUrlsInput.value = '';
   state.productImagesDraft = [];
@@ -2426,6 +2581,7 @@ function togglePinnedAdminFilter() {
 async function addToCart(productId) {
   const product = state.products.find((item) => item.id === productId);
   if (!product) return;
+  if (isOutOfStock(product)) return showToast('هذا الموديل غير متوفر للطلب حاليًا');
   const existing = state.cart.find((item) => item.id === productId);
   const unitPrice = getDisplayPrice(product);
   if (existing) existing.qty += 1;
@@ -2442,6 +2598,35 @@ function changeCartQty(productId, delta) {
   renderCart();
 }
 
+function validateCartAvailability() {
+  if (!state.productsLoaded) {
+    showToast('انتظر لحظة حتى تكتمل مزامنة المنتجات');
+    return false;
+  }
+  const unavailable = [];
+  state.cart.forEach((item) => {
+    const product = state.products.find((entry) => String(entry.id) === String(item.id));
+    if (!product || product.visible === false || isOutOfStock(product)) {
+      unavailable.push(item.model || item.name || 'موديل');
+      return;
+    }
+    item.name = product.name;
+    item.model = product.model;
+    item.unitPrice = getDisplayPrice(product);
+    item.originalPrice = getSeriesBasePrice(product);
+    item.pricePiece = getPiecePrice(product);
+    item.discountPercent = toNumber(product.discountPercent || 0);
+    item.imageUrl = normalizeImageUrls(product.imageUrls)[0] || item.imageUrl || '';
+    item.seriesQtyText = getSeriesQtyText(product);
+  });
+  renderCart();
+  if (unavailable.length) {
+    showToast(`راجع السلة: ${unavailable.slice(0, 3).join('، ')} غير متوفر الآن`);
+    return false;
+  }
+  return true;
+}
+
 async function submitOrder() {
   const customerName = el.customerNameInput.value.trim();
   const customerPhone = el.customerPhoneInput.value.trim();
@@ -2450,7 +2635,10 @@ async function submitOrder() {
   const paymentMethod = el.paymentMethodInput.value;
   const shippingMethod = el.shippingMethodInput.value;
   const notes = el.customerNotesInput.value.trim();
-  if (!customerName || !customerPhone || !city || !address) return showToast('أكمل بيانات العميل');
+  if (!validateCartAvailability()) return;
+  if (!customerName || !customerPhone || !city || !address) return showToast('أكمل بيانات العميل والاستلام');
+  const phoneDigits = customerPhone.replace(/\D/g, '');
+  if (phoneDigits.length < 10) return showToast('أدخل رقم هاتف صحيح');
   if (!state.cart.length) return showToast('السلة فارغة');
   const createdAtClient = new Date().toISOString();
   const orderNo = generateOrderNumber(createdAtClient);
@@ -2693,7 +2881,7 @@ function syncPublicTrackingCollection(orders = []) {
 }
 
 function exportProductsExcel() {
-  const rows = state.products.map((product) => ({ name: product.name || '', model: product.model || '', pricePiece: getPiecePrice(product), priceWholesale: getSeriesBasePrice(product), discountPercent: toNumber(product.discountPercent || 0), season: product.season || '', subCategory: getProductSubCategory(product), sizes: product.sizes || '', seriesQtyText: getSeriesQtyText(product), badgeText: product.badgeText || '', pinned: Boolean(product.pinned), visible: product.visible !== false, description: product.description || '', imageUrls: normalizeImageUrls(product.imageUrls).join('\n') }));
+  const rows = state.products.map((product) => ({ name: product.name || '', model: product.model || '', pricePiece: getPiecePrice(product), priceWholesale: getSeriesBasePrice(product), discountPercent: toNumber(product.discountPercent || 0), season: product.season || '', subCategory: getProductSubCategory(product), sizes: product.sizes || '', seriesQtyText: getSeriesQtyText(product), badgeText: product.badgeText || '', pinned: Boolean(product.pinned), visible: product.visible !== false, stockStatus: normalizeStockStatus(product.stockStatus), description: product.description || '', imageUrls: normalizeImageUrls(product.imageUrls).join('\n') }));
   exportWorkbook([{ name: 'products', rows }], 'products');
 }
 
@@ -2804,6 +2992,7 @@ async function importProductsExcel(event) {
         badgeText: String(firstValue(row, ['badgeText', 'شارة']) || '').trim(),
         pinned: toBool(firstValue(row, ['pinned', 'تثبيت']) || false),
         visible: String(firstValue(row, ['visible', 'إظهار']) || 'true').trim() === '' ? true : toBool(firstValue(row, ['visible', 'إظهار']) || true),
+        stockStatus: normalizeStockStatus(firstValue(row, ['stockStatus', 'التوفر', 'حالة التوفر']) || 'available'),
         description: String(firstValue(row, ['description', 'الوصف']) || '').trim(),
         codeCategory: deriveCodeCategory(model),
         imageUrls: normalizeImageUrls(textareaLines(firstValue(row, ['imageUrls', 'الصور']) || '').concat(parseMaybeArray(firstValue(row, ['imageUrl', 'صورة']) || ''))),
@@ -2922,9 +3111,9 @@ async function deleteAllData() {
 
 function openDrawer(which) {
   el.overlay.classList.add('show');
-  [el.menuDrawer, el.cartDrawer, el.adminDrawer].forEach((drawer) => drawer.classList.remove('show'));
+  [el.menuDrawer, el.cartDrawer, el.filterDrawer, el.adminDrawer].filter(Boolean).forEach((drawer) => drawer.classList.remove('show'));
   document.body.classList.add('drawer-open');
-  document.body.classList.remove('menu-drawer-open', 'cart-drawer-open', 'admin-drawer-open');
+  document.body.classList.remove('menu-drawer-open', 'cart-drawer-open', 'filter-drawer-open', 'admin-drawer-open');
   if (which === 'menu') {
     el.menuDrawer.classList.add('show');
     document.body.classList.add('menu-drawer-open');
@@ -2933,6 +3122,10 @@ function openDrawer(which) {
     el.cartDrawer.classList.add('show');
     document.body.classList.add('cart-drawer-open');
   }
+  if (which === 'filter' && el.filterDrawer) {
+    el.filterDrawer.classList.add('show');
+    document.body.classList.add('filter-drawer-open');
+  }
   if (which === 'admin') {
     el.adminDrawer.classList.add('show');
     document.body.classList.add('admin-drawer-open');
@@ -2940,9 +3133,9 @@ function openDrawer(which) {
 }
 
 function closeDrawers() {
-  [el.menuDrawer, el.cartDrawer, el.adminDrawer].forEach((drawer) => drawer.classList.remove('show'));
+  [el.menuDrawer, el.cartDrawer, el.filterDrawer, el.adminDrawer].filter(Boolean).forEach((drawer) => drawer.classList.remove('show'));
   el.overlay.classList.remove('show');
-  document.body.classList.remove('drawer-open', 'menu-drawer-open', 'cart-drawer-open', 'admin-drawer-open');
+  document.body.classList.remove('drawer-open', 'menu-drawer-open', 'cart-drawer-open', 'filter-drawer-open', 'admin-drawer-open');
 }
 
 function handleInitialCartRoute() {
@@ -3027,6 +3220,9 @@ function openQuickProduct(product) {
   el.quickProductSizes.textContent = sizesLabel;
   el.quickProductCategory.textContent = subCategoryLabel ? `${categoryLabel} • ${subCategoryLabel}` : categoryLabel;
   el.quickProductSeason.textContent = seasonLabel;
+  const stock = getStockStatus(product);
+  if (el.quickProductStock) { el.quickProductStock.className = `stock-status ${stock.key}`; el.quickProductStock.innerHTML = `<i class="fa-solid ${stock.icon}"></i><span>${escapeHTML(stock.longLabel)}</span>`; }
+  if (el.quickProductAddBtn) { el.quickProductAddBtn.disabled = stock.key === 'out'; el.quickProductAddBtn.querySelector('span').textContent = stock.key === 'out' ? 'غير متوفر' : 'أضف سيري'; }
   el.quickProductOpenPage.href = productPageUrl;
   el.quickProductOpenPage.setAttribute('aria-label', `فتح صفحة ${productLabel}`);
   el.quickProductAddBtn.dataset.productId = String(product.id || '');
@@ -3711,6 +3907,19 @@ function enrichProduct(product) {
   return { ...product, _searchText: buildProductSearchText(product) };
 }
 
+function normalizeStockStatus(value) {
+  const raw = String(value || 'available').trim().toLowerCase();
+  if (['out','unavailable','soldout','غير متوفر','نفذ'].includes(raw)) return 'out';
+  if (['limited','low','كمية محدودة','محدود'].includes(raw)) return 'limited';
+  return 'available';
+}
+function getStockStatus(product) {
+  const key = normalizeStockStatus(product?.stockStatus);
+  if (key === 'out') return { key, label:'غير متوفر', longLabel:'غير متوفر للطلب', icon:'fa-circle-xmark' };
+  if (key === 'limited') return { key, label:'كمية محدودة', longLabel:'متوفر بكمية محدودة', icon:'fa-circle-exclamation' };
+  return { key:'available', label:'متوفر', longLabel:'متوفر للطلب', icon:'fa-circle-check' };
+}
+const isOutOfStock = (product) => getStockStatus(product).key === 'out';
 const hasDiscount = (product) => toNumber(product.discountPercent || 0) > 0;
 const getVisibleProducts = () => state.products.filter((item) => item.visible !== false);
 

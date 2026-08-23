@@ -25,9 +25,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
-  <link rel="stylesheet" href="styles.css?v=35" />
+  <link rel="stylesheet" href="styles.css?v=36" />
   <script type="application/ld+json" id="productStructuredData"></script>
-  <script type="module" defer src="product-page.js?v=35"></script>
+  <script type="module" defer src="product-page.js?v=36"></script>
 </head>
 <body>
   <div id="productToast" class="toast"></div>
@@ -58,6 +58,7 @@
   </header>
 
   <main class="shell product-page-shell">
+    <nav class="store-breadcrumb" aria-label="مسار التنقل"><a href="./">الرئيسية</a><i class="fa-solid fa-angle-left"></i><a href="./?screen=products">الكتالوج</a><i class="fa-solid fa-angle-left"></i><span id="productBreadcrumbModel">الموديل</span></nav>
     <section class="intro-wrap product-intro-wrap">
       <div class="intro-card product-intro-card">
         <div class="intro-topline">
@@ -82,6 +83,8 @@
               <div class="meta-card"><span>التصنيف</span><strong id="productCategory">-</strong></div>
               <div class="meta-card"><span>الموسم</span><strong id="productSeason">-</strong></div>
             </div>
+
+            <div id="productStockStatus" class="stock-status available"><i class="fa-solid fa-circle-check"></i><span>متوفر للطلب</span></div>
 
             <div class="product-page-price-card">
               <div class="price-main">
@@ -110,6 +113,12 @@
                 </div>
                 <button id="productAddToCartBtn" type="button" class="primary-btn product-add-to-cart-btn"><i class="fa-solid fa-cart-plus"></i><span>إضافة للسلة</span></button>
               </div>
+            </div>
+
+            <div class="product-purchase-confidence">
+              <span><i class="fa-solid fa-box"></i> بيع بالسيري</span>
+              <span><i class="fa-solid fa-file-invoice"></i> فاتورة بعد الطلب</span>
+              <span><i class="fa-brands fa-whatsapp"></i> دعم المبيعات</span>
             </div>
 
             <div class="card-actions product-page-actions product-page-actions--secondary">

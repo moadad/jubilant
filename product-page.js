@@ -60,6 +60,8 @@ const el = {
   mobileAddBtn: document.getElementById('productMobileAddBtn'),
   mobileCartBtn: document.getElementById('productMobileCartBtn'),
   mobileCartCount: document.getElementById('productMobileCartCount'),
+  stockStatus: document.getElementById('productStockStatus'),
+  breadcrumbModel: document.getElementById('productBreadcrumbModel'),
 };
 
 const state = {
@@ -175,6 +177,7 @@ function renderProduct(product, ctx) {
   el.title.textContent = title;
   el.lead.textContent = lead || 'تفاصيل الموديل';
   el.model.textContent = modelLabel;
+  if (el.breadcrumbModel) el.breadcrumbModel.textContent = `Model ${modelLabel}`;
   el.sizes.textContent = product.sizes || getSeriesLabel(product);
   el.category.textContent = category;
   el.season.textContent = product.season || 'غير محدد';
@@ -189,6 +192,9 @@ function renderProduct(product, ctx) {
     el.basePrice.classList.add('hidden');
   }
   el.description.textContent = description;
+  const stock = getStockStatus(product);
+  if (el.stockStatus) { el.stockStatus.className = `stock-status ${stock.key}`; el.stockStatus.innerHTML = `<i class="fa-solid ${stock.icon}"></i><span>${escapeHTML(stock.longLabel)}</span>`; }
+  [el.addToCartBtn, el.mobileAddBtn].filter(Boolean).forEach((button) => { button.disabled = stock.key === 'out'; const span=button.querySelector('span'); if (span) span.textContent = stock.key === 'out' ? 'غير متوفر' : (button === el.mobileAddBtn ? 'إضافة للسلة' : 'إضافة للسلة'); });
   el.heroImage.src = imageUrl;
   el.heroImage.alt = buildProductAlt(product, brand, category);
   renderThumbs(urls.length ? urls : [imageUrl], title, brand, category);
@@ -217,6 +223,7 @@ function setDesiredQty(value) {
 function addCurrentProductToCart() {
   const product = state.currentProduct;
   if (!product) return;
+  if (isOutOfStock(product)) return showToast('هذا الموديل غير متوفر للطلب حاليًا');
   const qty = readDesiredQty();
   const existing = state.cart.find((item) => item.id === product.id);
   const unitPrice = getDisplayPrice(product);
@@ -315,6 +322,7 @@ function renderRelatedProducts(currentProduct, products, brand, categories) {
     article.innerHTML = `
       <a class="product-media" href="${escapeAttr(getProductPageUrl(product))}" aria-label="${escapeAttr(title)}">
         <img src="${escapeAttr(imageUrl)}" alt="${escapeAttr(buildProductAlt(product, brand, category))}" loading="lazy" decoding="async" />
+        <span class="stock-badge ${getStockStatus(product).key}">${escapeHTML(getStockStatus(product).label)}</span>
       </a>
       <div class="product-body">
         <div class="badges-row"><span class="badge">${escapeHTML(category)}</span>${getProductSubCategory(product) ? `<span class="badge">${escapeHTML(getProductSubCategory(product))}</span>` : ''}</div>
@@ -356,7 +364,7 @@ function syncStructuredData(product, brand, category, description, imageUrl, pro
           '@type': 'Offer',
           priceCurrency: 'EGP',
           price: String(getDisplayPrice(product)),
-          availability: 'https://schema.org/InStock',
+          availability: isOutOfStock(product) ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock',
           url: productUrl,
         }
       },
@@ -410,6 +418,20 @@ function normalizeImageUrls(value) {
   if (!text) return [];
   return text.split(/[,\n]/).map((item) => item.trim()).filter(Boolean);
 }
+
+function normalizeStockStatus(value) {
+  const raw = String(value || 'available').trim().toLowerCase();
+  if (['out','unavailable','soldout','غير متوفر','نفذ'].includes(raw)) return 'out';
+  if (['limited','low','كمية محدودة','محدود'].includes(raw)) return 'limited';
+  return 'available';
+}
+function getStockStatus(product) {
+  const key = normalizeStockStatus(product?.stockStatus);
+  if (key === 'out') return { key, label:'غير متوفر', longLabel:'غير متوفر للطلب', icon:'fa-circle-xmark' };
+  if (key === 'limited') return { key, label:'كمية محدودة', longLabel:'متوفر بكمية محدودة', icon:'fa-circle-exclamation' };
+  return { key:'available', label:'متوفر', longLabel:'متوفر للطلب', icon:'fa-circle-check' };
+}
+const isOutOfStock = (product) => getStockStatus(product).key === 'out';
 
 function hasDiscount(product) {
   return toNumber(product.discountPercent || 0) > 0;

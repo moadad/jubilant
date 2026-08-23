@@ -1,4 +1,4 @@
-const APP_VERSION = 'joodkids-premium-v35';
+const APP_VERSION = 'joodkids-store-v36';
 const STATIC_CACHE = `${APP_VERSION}-static`;
 const RUNTIME_CACHE = `${APP_VERSION}-runtime`;
 const CORE_ASSETS = [
@@ -67,7 +67,7 @@ self.addEventListener('fetch', (event) => {
   const path = url.pathname.toLowerCase();
 
   if (request.mode === 'navigate') {
-    event.respondWith(networkFirst(request, './index.html'));
+    event.respondWith(networkFirst(request, path.endsWith('/product.html') || path.endsWith('product.html') ? './product.html' : './index.html'));
     return;
   }
 
