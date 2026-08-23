@@ -16,7 +16,7 @@ const ADMIN_EMAILS = ['admin@sestem.local', 'admin@system.local'];
 const CLOUDINARY_CLOUD_NAME = 'dthtzvypx';
 const CART_STORAGE_KEY = 'joodkids_cart_wholesale_piece_v3_fast';
 const PRODUCT_PAGE_SIZE = 24;
-const APP_SW_VERSION = 'joodkids-premium-v34';
+const APP_SW_VERSION = 'joodkids-premium-v35';
 const APP_ROOT_URL = new URL('./', window.location.href);
 const SITE_URL = APP_ROOT_URL.href;
 const OPEN_CART_FLAG_KEY = 'joodkids_open_cart_after_nav';
@@ -114,6 +114,7 @@ const state = {
   featuredOnlyAdmin: false,
   adminProductSearch: '',
   adminProductShowAll: false,
+  searchSuggestionIndex: -1,
   gallery: { urls: [], index: 0 },
   filter: { search: '', category: 'all', subCategory: 'all', season: 'all', offersOnly: false, sort: 'featured' },
   deferredInstallPrompt: null,
@@ -171,6 +172,7 @@ const el = {
   seasonsCounter: id('seasonsCounter'),
   companyAbout: id('companyAbout'),
   searchInput: id('searchInput'),
+  searchSuggestions: id('searchSuggestions'),
   sortFilter: id('sortFilter'),
   clearFiltersBtn: id('clearFiltersBtn'),
   visibleCount: id('visibleCount'),
@@ -200,6 +202,11 @@ const el = {
   modalFactoryMapLink: id('modalFactoryMapLink'),
   modalShopMapLink: id('modalShopMapLink'),
   floatingWhatsApp: id('floatingWhatsApp'),
+  mobileHomeBtn: id('mobileHomeBtn'),
+  mobileSearchBtn: id('mobileSearchBtn'),
+  mobileOffersBtn: id('mobileOffersBtn'),
+  mobileCartBtn: id('mobileCartBtn'),
+  mobileCartCount: id('mobileCartCount'),
   closeCart: id('closeCart'),
   cartItems: id('cartItems'),
   cartItemsCount: id('cartItemsCount'),
@@ -214,10 +221,18 @@ const el = {
   adminLogoutBtn: id('adminLogoutBtn'),
   authStatus: id('authStatus'),
   adminProductsCount: id('adminProductsCount'),
+  adminVisibleProductsCount: id('adminVisibleProductsCount'),
+  adminOffersCount: id('adminOffersCount'),
+  adminPendingOrdersCount: id('adminPendingOrdersCount'),
+  adminTodayOrdersCount: id('adminTodayOrdersCount'),
+  adminHiddenProductsCount: id('adminHiddenProductsCount'),
+  adminSeasonsCount: id('adminSeasonsCount'),
+  dashboardInsights: id('dashboardInsights'),
   adminOrdersCount: id('adminOrdersCount'),
   adminCategoriesCount: id('adminCategoriesCount'),
   adminOrdersTotal: id('adminOrdersTotal'),
   adminProductsList: id('adminProductsList'),
+  adminOffersList: id('adminOffersList'),
   adminProductSearchInput: id('adminProductSearchInput'),
   adminProductSearchClear: id('adminProductSearchClear'),
   adminProductSearchStatus: id('adminProductSearchStatus'),
@@ -371,6 +386,10 @@ function bindUI() {
   el.navContactBtn?.addEventListener('click', () => openModal('contactModal'));
   el.heroShopBtn?.addEventListener('click', () => el.catalogFlowStage?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   el.heroWhatsappBtn?.addEventListener('click', openWhatsAppDirect);
+  el.mobileHomeBtn?.addEventListener('click', () => { closeDrawers(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+  el.mobileSearchBtn?.addEventListener('click', () => { closeDrawers(); el.toolbarWrap?.scrollIntoView({ behavior: 'smooth', block: 'center' }); setTimeout(() => el.searchInput?.focus(), 280); });
+  el.mobileOffersBtn?.addEventListener('click', openOffersExperience);
+  el.mobileCartBtn?.addEventListener('click', () => openDrawer('cart'));
   el.cartToggle.addEventListener('click', () => openDrawer('cart'));
   el.closeCart.addEventListener('click', closeDrawers);
   el.closeAdmin.addEventListener('click', closeDrawers);
@@ -393,7 +412,13 @@ function bindUI() {
   el.menuOffersBtn.addEventListener('click', openOffersExperience);
   el.installBtn.addEventListener('click', installPwa);
   el.menuInstallBtn.addEventListener('click', installPwa);
-  el.searchInput.addEventListener('input', debouncedSearch);
+  el.searchInput.addEventListener('input', () => {
+    state.searchSuggestionIndex = -1;
+    renderSearchSuggestions();
+    debouncedSearch();
+  });
+  el.searchInput.addEventListener('focus', renderSearchSuggestions);
+  el.searchInput.addEventListener('keydown', handleSearchSuggestionKeys);
   el.sortFilter.addEventListener('change', () => { state.filter.sort = el.sortFilter.value; resetRenderedProducts(); applyFilters(); });
   el.clearFiltersBtn.addEventListener('click', clearFilters);
   el.loadMoreBtn.addEventListener('click', renderMoreProducts);
@@ -505,6 +530,11 @@ function bindUI() {
     if (!src) return;
     openGallery([src], 0);
   });
+  document.addEventListener('click', (event) => {
+    if (!el.searchSuggestions || el.searchSuggestions.classList.contains('hidden')) return;
+    if (event.target === el.searchInput || el.searchSuggestions.contains(event.target)) return;
+    hideSearchSuggestions();
+  });
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && document.querySelector('.modal.show')) {
       const activeModal = document.querySelector('.modal.show');
@@ -526,6 +556,7 @@ function activateAdminTab(tabId) {
   el.adminTabs.forEach((item) => item.classList.toggle('active', item.dataset.tab === tabId));
   el.tabsPanels.forEach((panel) => panel.classList.toggle('active', panel.id === tabId));
   if (tabId === 'productsManagerTab') renderAdminProducts();
+  if (tabId === 'offersAdminTab') renderAdminOffers();
 }
 
 function subscribeData() {
@@ -615,6 +646,7 @@ function renderEverything() {
   renderCategoryManager();
   renderAdminForms();
   renderAdminProducts();
+  renderAdminOffers();
   renderAdminOrders();
   applyFilters();
   renderCart();
@@ -655,6 +687,7 @@ function renderStorefront() {
   el.categoriesCounter.textContent = getCodeCategoryKeys().length.toLocaleString('en-US');
   el.seasonsCounter.textContent = getSeasonOptions().length.toLocaleString('en-US');
   el.floatingWhatsApp.classList.toggle('hidden', !state.storefront.floatingWhatsappEnabled || !normalizeWhatsAppNumber(state.company.whatsapp || state.company.phone1));
+  el.menuTrackOrderBtn?.classList.toggle('hidden', !PUBLIC_TRACKING_ENABLED);
   const showInstall = state.storefront.installEnabled && Boolean(state.deferredInstallPrompt);
   el.installBtn.classList.toggle('hidden', !showInstall);
   el.menuInstallBtn.classList.toggle('hidden', !showInstall);
@@ -1186,6 +1219,89 @@ function renderCatalogFlow() {
   syncCatalogRoute();
 }
 
+function hideSearchSuggestions() {
+  if (!el.searchSuggestions) return;
+  el.searchSuggestions.classList.add('hidden');
+  el.searchSuggestions.innerHTML = '';
+  state.searchSuggestionIndex = -1;
+}
+
+function getPublicSearchSuggestions(rawValue = el.searchInput?.value || '') {
+  const q = normalizeAdminProductSearch(rawValue).replace(/^model\s*/i, '').trim();
+  if (!q) return [];
+  const modelQ = normalizeModelForAdminSearch(q);
+  return getVisibleProducts().map((product) => {
+    const model = normalizeModelForAdminSearch(product.model);
+    const name = normalizeAdminProductSearch(product.name);
+    let score = 99;
+    if (model === modelQ) score = 0;
+    else if (model.startsWith(modelQ)) score = 1;
+    else if (model.includes(modelQ)) score = 2;
+    else if (name.startsWith(q)) score = 3;
+    else if (name.includes(q)) score = 4;
+    return { product, score };
+  }).filter((item) => item.score < 99).sort((a,b) => a.score - b.score || String(a.product.model || '').localeCompare(String(b.product.model || ''), 'en', { numeric: true })).slice(0, 6).map((item) => item.product);
+}
+
+function renderSearchSuggestions() {
+  if (!el.searchSuggestions || !el.searchInput) return;
+  const q = el.searchInput.value.trim();
+  if (!q) return hideSearchSuggestions();
+  const products = getPublicSearchSuggestions(q);
+  el.searchSuggestions.innerHTML = '';
+  if (!products.length) {
+    el.searchSuggestions.innerHTML = '<div class="search-suggestion-empty"><i class="fa-solid fa-magnifying-glass"></i><span>لا يوجد موديل مطابق</span></div>';
+    el.searchSuggestions.classList.remove('hidden');
+    return;
+  }
+  products.forEach((product, index) => {
+    const image = getMiniImageUrl(normalizeImageUrls(product.imageUrls)[0] || placeholderImage(product.name || product.model || 'Jood Kids'));
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'search-suggestion-item';
+    button.setAttribute('role', 'option');
+    button.dataset.suggestionIndex = String(index);
+    button.innerHTML = `<img src="${escapeAttr(image)}" alt="" loading="lazy" decoding="async"><div><strong>Model ${escapeHTML(product.model || '—')}</strong><span>${escapeHTML(product.name || 'بدون اسم')}</span><small>${escapeHTML(product.sizes || getSeriesQtyText(product) || '')}</small></div><b>${formatCurrency(getDiscountedPiecePrice(product))}</b>`;
+    button.addEventListener('click', () => chooseSearchSuggestion(product));
+    el.searchSuggestions.appendChild(button);
+  });
+  el.searchSuggestions.classList.remove('hidden');
+}
+
+function chooseSearchSuggestion(product) {
+  if (!product) return;
+  el.searchInput.value = String(product.model || product.name || '');
+  state.filter.search = el.searchInput.value.trim().toLowerCase();
+  resetRenderedProducts();
+  applyFilters();
+  hideSearchSuggestions();
+  openQuickProduct(product);
+}
+
+function handleSearchSuggestionKeys(event) {
+  if (!el.searchSuggestions || el.searchSuggestions.classList.contains('hidden')) {
+    if (event.key === 'ArrowDown') renderSearchSuggestions();
+    return;
+  }
+  const items = [...el.searchSuggestions.querySelectorAll('.search-suggestion-item')];
+  if (!items.length) {
+    if (event.key === 'Escape') hideSearchSuggestions();
+    return;
+  }
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    event.preventDefault();
+    const delta = event.key === 'ArrowDown' ? 1 : -1;
+    state.searchSuggestionIndex = (state.searchSuggestionIndex + delta + items.length) % items.length;
+    items.forEach((item, index) => item.classList.toggle('active', index === state.searchSuggestionIndex));
+    items[state.searchSuggestionIndex]?.scrollIntoView({ block:'nearest' });
+  } else if (event.key === 'Enter' && state.searchSuggestionIndex >= 0) {
+    event.preventDefault();
+    items[state.searchSuggestionIndex]?.click();
+  } else if (event.key === 'Escape') {
+    hideSearchSuggestions();
+  }
+}
+
 function applyFilters() {
   const search = state.filter.search;
   let items = getVisibleProducts().filter((product) => {
@@ -1472,6 +1588,7 @@ function renderCart() {
   saveLocalJSON(CART_STORAGE_KEY, state.cart);
   const count = state.cart.reduce((sum, item) => sum + item.qty, 0);
   el.cartCount.textContent = String(count);
+  if (el.mobileCartCount) el.mobileCartCount.textContent = String(count);
   el.cartItemsCount.textContent = getSeriesCountLabel(count);
   el.cartItems.innerHTML = '';
   if (!state.cart.length) {
@@ -1534,10 +1651,26 @@ function renderAdminForms() {
   el.shippingPolicyInput.value = state.storeSettings.shippingPolicy || DEFAULT_SHIPPING_POLICY;
   el.termsPolicyInput.value = state.storeSettings.termsPolicy || DEFAULT_TERMS_POLICY;
   el.seasonsInput.value = getSeasonOptions().join(', ');
+  const visibleProductsCount = state.products.filter((item) => item.visible !== false).length;
+  const hiddenProductsCount = Math.max(0, state.products.length - visibleProductsCount);
+  const offersCount = state.products.filter((item) => item.visible !== false && hasDiscount(item)).length;
+  const pendingOrdersCount = state.orders.filter((item) => !['تم التسليم','ملغي','ملغى','delivered','cancelled'].includes(String(item.status || '').trim().toLowerCase())).length;
+  const todayKey = new Date().toLocaleDateString('en-CA');
+  const todayOrdersCount = state.orders.filter((item) => {
+    const millis = toMillis(item.createdAt || item.updatedAt);
+    return millis && new Date(millis).toLocaleDateString('en-CA') === todayKey;
+  }).length;
   el.adminProductsCount.textContent = String(state.products.length);
+  if (el.adminVisibleProductsCount) el.adminVisibleProductsCount.textContent = `${visibleProductsCount} ظاهر`;
+  if (el.adminOffersCount) el.adminOffersCount.textContent = String(offersCount);
   el.adminOrdersCount.textContent = String(state.orders.length);
+  if (el.adminPendingOrdersCount) el.adminPendingOrdersCount.textContent = `${pendingOrdersCount} قيد المراجعة`;
+  if (el.adminTodayOrdersCount) el.adminTodayOrdersCount.textContent = `${todayOrdersCount} طلب اليوم`;
+  if (el.adminHiddenProductsCount) el.adminHiddenProductsCount.textContent = String(hiddenProductsCount);
   el.adminCategoriesCount.textContent = String(getCodeCategoryKeys().length);
+  if (el.adminSeasonsCount) el.adminSeasonsCount.textContent = `${getSeasonOptions().length} موسم`;
   el.adminOrdersTotal.textContent = formatCurrency(state.orders.reduce((sum, item) => sum + getOrderTotals(item).total, 0));
+  renderDashboardInsights();
 }
 
 function rebuildSeasonOptions() {
@@ -1586,7 +1719,7 @@ function normalizeAdminProductSearch(value) {
 }
 
 function normalizeModelForAdminSearch(value) {
-  return String(value || '').trim().toLowerCase().replace(/[\s\-_./\\]+/g, '');
+  return String(value || '').trim().toLowerCase().replace(/[\s\-_./\\]+/g, '').replace(/^model/, '');
 }
 
 function clearAdminProductSearch() {
@@ -1687,14 +1820,80 @@ function renderAdminProducts() {
       </div>
       <div class="admin-actions admin-product-result-actions">
         <button class="ghost-btn" data-edit><i class="fa-solid fa-pen"></i><span>تعديل</span></button>
+        <button class="ghost-btn" data-duplicate><i class="fa-solid fa-copy"></i><span>نسخ</span></button>
         <button class="ghost-btn" data-pin><i class="fa-solid fa-thumbtack"></i><span>${product.pinned ? 'إلغاء التثبيت' : 'تثبيت'}</span></button>
         <button class="danger-btn" data-del><i class="fa-solid fa-trash"></i><span>حذف</span></button>
       </div>`;
     item.querySelector('[data-edit]').addEventListener('click', () => populateProductForm(product));
+    item.querySelector('[data-duplicate]')?.addEventListener('click', () => duplicateProduct(product));
     item.querySelector('[data-pin]').addEventListener('click', () => togglePinned(product));
     item.querySelector('[data-del]').addEventListener('click', (event) => deleteProduct(product.id, event.currentTarget));
     el.adminProductsList.appendChild(item);
   });
+}
+
+function renderDashboardInsights() {
+  if (!el.dashboardInsights) return;
+  const offers = state.products.filter((item) => item.visible !== false && hasDiscount(item)).sort((a,b) => toNumber(b.discountPercent) - toNumber(a.discountPercent));
+  const latestProduct = [...state.products].sort((a,b) => toMillis(b.createdAt || b.updatedAt) - toMillis(a.createdAt || a.updatedAt))[0];
+  const itemFrequency = new Map();
+  state.orders.forEach((order) => (Array.isArray(order.items) ? order.items : []).forEach((item) => {
+    const key = String(item.model || item.name || '').trim();
+    if (!key) return;
+    itemFrequency.set(key, (itemFrequency.get(key) || 0) + Math.max(1, toInt(item.qty || 1)));
+  }));
+  const topOrderItem = [...itemFrequency.entries()].sort((a,b) => b[1] - a[1])[0];
+  const cards = [
+    { icon:'fa-wand-magic-sparkles', label:'آخر موديل', value: latestProduct ? `Model ${escapeHTML(latestProduct.model || '—')}` : '—' },
+    { icon:'fa-percent', label:'أعلى خصم', value: offers[0] ? `${Math.round(toNumber(offers[0].discountPercent))}% • Model ${escapeHTML(offers[0].model || '—')}` : 'لا يوجد' },
+    { icon:'fa-fire', label:'الأكثر طلبًا', value: topOrderItem ? `${escapeHTML(topOrderItem[0])} • ${topOrderItem[1]}` : 'لا توجد بيانات بعد' },
+  ];
+  el.dashboardInsights.innerHTML = cards.map((card) => `<div class="dashboard-insight"><i class="fa-solid ${card.icon}"></i><div><span>${card.label}</span><strong>${card.value}</strong></div></div>`).join('');
+}
+
+function renderAdminOffers() {
+  if (!el.adminOffersList) return;
+  el.adminOffersList.innerHTML = '';
+  const offers = [...state.products].filter(hasDiscount).sort((a,b) => toNumber(b.discountPercent) - toNumber(a.discountPercent));
+  if (!offers.length) {
+    el.adminOffersList.innerHTML = '<div class="admin-product-search-empty"><i class="fa-solid fa-tags"></i><strong>لا توجد عروض مفعلة</strong><span>أضف نسبة خصم لأي موديل وسيظهر هنا وفي قسم العروض بالمتجر.</span></div>';
+    return;
+  }
+  offers.forEach((product) => {
+    const url = getMiniImageUrl(normalizeImageUrls(product.imageUrls)[0] || placeholderImage(product.name || product.model || 'Jood Kids'));
+    const oldPrice = getPiecePrice(product);
+    const newPrice = getDiscountedPiecePrice(product);
+    const card = document.createElement('div');
+    card.className = 'admin-offer-card';
+    card.innerHTML = `<img src="${escapeAttr(url)}" alt="${escapeAttr(buildProductAlt(product))}" loading="lazy" decoding="async"><div class="admin-offer-main"><div class="admin-offer-top"><strong>Model ${escapeHTML(product.model || '—')}</strong><span>-${Math.round(toNumber(product.discountPercent))}%</span></div><h4>${escapeHTML(product.name || 'بدون اسم')}</h4><div class="admin-offer-prices"><del>${formatCurrency(oldPrice)}</del><strong>${formatCurrency(newPrice)}</strong></div></div><button type="button" class="ghost-btn" data-edit-offer><i class="fa-solid fa-pen"></i><span>تعديل العرض</span></button>`;
+    card.querySelector('[data-edit-offer]')?.addEventListener('click', () => populateProductForm(product));
+    el.adminOffersList.appendChild(card);
+  });
+}
+
+function duplicateProduct(product) {
+  if (!product) return;
+  state.editingProductId = null;
+  el.productFormTitle.textContent = `نسخ موديل ${product.model || ''}`;
+  el.productNameInput.value = product.name || '';
+  el.productModelInput.value = '';
+  el.productPriceInput.value = String(getPiecePrice(product));
+  el.productDiscountInput.value = String(toInt(product.discountPercent || 0));
+  el.productSeasonInput.value = product.season || getSeasonOptions()[0] || 'صيفي';
+  el.productSubCategoryInput.value = getProductSubCategory(product);
+  el.productSizesInput.value = product.sizes || '';
+  el.productMinQtyInput.value = getSeriesQtyText(product);
+  el.productBadgeInput.value = product.badgeText || '';
+  el.productPinnedInput.value = String(Boolean(product.pinned));
+  el.productVisibleInput.value = String(product.visible !== false);
+  el.productDescriptionInput.value = product.description || '';
+  state.productImagesDraft = normalizeImageUrls(product.imageUrls);
+  el.productImageUrlsInput.value = state.productImagesDraft.join('\n');
+  renderProductPreview();
+  openDrawer('admin');
+  activateAdminTab('productAddTab');
+  showToast('تم نسخ البيانات. اكتب رقم الموديل الجديد ثم احفظ.');
+  queueMicrotask(() => el.productModelInput?.focus());
 }
 
 function renderAdminOrders() {
@@ -2081,6 +2280,15 @@ async function saveProduct() {
   const seriesQtyNumber = getSeriesQtyNumber({ seriesQtyText });
   const priceWholesale = round2(pricePiece * seriesQtyNumber);
   if (!name || !model || rawPricePiece === '' || !seriesQtyText) return showToast('الاسم والموديل وسعر القطعة وكمية السيري مطلوبة');
+  const duplicateModel = state.products.find((item) => String(item.id) !== String(state.editingProductId || '') && normalizeModelForAdminSearch(item.model) === normalizeModelForAdminSearch(model));
+  if (duplicateModel) {
+    state.adminProductSearch = model;
+    state.adminProductShowAll = false;
+    if (el.adminProductSearchInput) el.adminProductSearchInput.value = model;
+    activateAdminTab('productsManagerTab');
+    renderAdminProducts();
+    return showToast(`رقم الموديل ${model} موجود بالفعل. افتحه للتعديل بدل إنشاء نسخة مكررة.`);
+  }
   const payload = {
     name,
     model,
@@ -3480,6 +3688,7 @@ function clearFilters() {
   const subCategory = state.catalog.step === 'products' ? (state.catalog.selectedSubCategory || 'all') : 'all';
   state.filter = { search: '', category: category || 'all', subCategory: subCategory || 'all', season: season || 'all', offersOnly: false, sort: 'featured' };
   el.searchInput.value = '';
+  hideSearchSuggestions();
   el.sortFilter.value = 'featured';
   resetRenderedProducts();
   applyFilters();

@@ -31,9 +31,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
-  <link rel="stylesheet" href="styles.css?v=34" />
+  <link rel="stylesheet" href="styles.css?v=35" />
   <script defer src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-  <script type="module" defer src="app.js?v=34"></script>
+  <script type="module" defer src="app.js?v=35"></script>
 <script type="application/ld+json" id="baseStructuredData">
 {
   "@context": "https://schema.org",
@@ -224,9 +224,13 @@
 
     <section class="shell toolbar-wrap" id="toolbarWrap">
       <div class="toolbar-card">
-        <div class="search-box">
-          <i class="fa-solid fa-magnifying-glass"></i>
-          <input id="searchInput" type="text" placeholder="بحث بالاسم أو الموديل" />
+        <div class="smart-search-wrap">
+          <div class="search-box smart-search-box">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input id="searchInput" type="search" inputmode="search" autocomplete="off" placeholder="اكتب رقم الموديل أو اسم المنتج" aria-label="البحث عن موديل أو منتج" />
+            <kbd class="search-hint">Model</kbd>
+          </div>
+          <div id="searchSuggestions" class="search-suggestions hidden" role="listbox" aria-label="اقتراحات البحث"></div>
         </div>
         <div class="toolbar-filters">
           <select id="sortFilter" class="clean-select">
@@ -282,6 +286,13 @@
     </footer>
   </main>
 
+  <nav id="mobileBottomNav" class="mobile-bottom-nav" aria-label="التنقل السريع">
+    <button id="mobileHomeBtn" type="button"><i class="fa-solid fa-house"></i><span>الرئيسية</span></button>
+    <button id="mobileSearchBtn" type="button"><i class="fa-solid fa-magnifying-glass"></i><span>بحث</span></button>
+    <button id="mobileOffersBtn" type="button"><i class="fa-solid fa-tags"></i><span>العروض</span></button>
+    <button id="mobileCartBtn" type="button" class="mobile-cart-nav"><i class="fa-solid fa-bag-shopping"></i><span>السلة</span><b id="mobileCartCount">0</b></button>
+  </nav>
+
   <button id="floatingWhatsApp" class="floating-whatsapp hidden" aria-label="واتساب">
     <i class="fa-brands fa-whatsapp"></i>
   </button>
@@ -327,18 +338,25 @@
         <button class="tab-btn" data-tab="categoryTab"><i class="fa-solid fa-tags"></i><span>التصنيفات</span></button>
         <button class="tab-btn" data-tab="productAddTab"><i class="fa-solid fa-circle-plus"></i><span>إضافة منتج</span></button>
         <button class="tab-btn" data-tab="productsManagerTab"><i class="fa-solid fa-shirt"></i><span>المنتجات</span></button>
+        <button class="tab-btn" data-tab="offersAdminTab"><i class="fa-solid fa-percent"></i><span>العروض</span></button>
         <button class="tab-btn" data-tab="ordersTab"><i class="fa-solid fa-bag-shopping"></i><span>الطلبات</span></button>
         <button class="tab-btn" data-tab="dataTab"><i class="fa-solid fa-database"></i><span>البيانات</span></button>
       </div>
 
       <div id="dashboardTab" class="tab-panel active">
         <article class="panel-card">
-          <div class="stats-grid">
-            <div class="kpi-card"><span>المنتجات</span><strong id="adminProductsCount">0</strong></div>
-            <div class="kpi-card"><span>الطلبات</span><strong id="adminOrdersCount">0</strong></div>
-            <div class="kpi-card"><span>التصنيفات</span><strong id="adminCategoriesCount">0</strong></div>
-            <div class="kpi-card"><span>إجمالي الطلبات</span><strong id="adminOrdersTotal">0 ج.م</strong></div>
+          <div class="admin-section-heading dashboard-heading">
+            <div><span class="admin-eyebrow"><i class="fa-solid fa-gauge-high"></i> مركز الإدارة</span><h4>ملخص المتجر</h4><p>أهم الأرقام التي تحتاجها بدون ازدحام.</p></div>
           </div>
+          <div class="stats-grid premium-stats-grid">
+            <div class="kpi-card kpi-premium"><span><i class="fa-solid fa-shirt"></i> المنتجات</span><strong id="adminProductsCount">0</strong><small id="adminVisibleProductsCount">0 ظاهر</small></div>
+            <div class="kpi-card kpi-premium"><span><i class="fa-solid fa-tags"></i> العروض</span><strong id="adminOffersCount">0</strong><small>منتج مخفّض</small></div>
+            <div class="kpi-card kpi-premium"><span><i class="fa-solid fa-bag-shopping"></i> الطلبات</span><strong id="adminOrdersCount">0</strong><small id="adminPendingOrdersCount">0 قيد المراجعة</small></div>
+            <div class="kpi-card kpi-premium"><span><i class="fa-solid fa-coins"></i> إجمالي الطلبات</span><strong id="adminOrdersTotal">0 ج.م</strong><small id="adminTodayOrdersCount">0 طلب اليوم</small></div>
+            <div class="kpi-card kpi-premium"><span><i class="fa-solid fa-eye-slash"></i> المخفي</span><strong id="adminHiddenProductsCount">0</strong><small>غير ظاهر للعملاء</small></div>
+            <div class="kpi-card kpi-premium"><span><i class="fa-solid fa-layer-group"></i> التصنيفات</span><strong id="adminCategoriesCount">0</strong><small id="adminSeasonsCount">0 موسم</small></div>
+          </div>
+          <div id="dashboardInsights" class="dashboard-insights"></div>
         </article>
       </div>
 
@@ -469,6 +487,19 @@
           </div>
 
           <div id="adminProductsList" class="stack-list admin-products-results"></div>
+        </article>
+      </div>
+
+      <div id="offersAdminTab" class="tab-panel">
+        <article class="panel-card offers-manager-card">
+          <div class="admin-section-heading">
+            <div>
+              <span class="admin-eyebrow"><i class="fa-solid fa-percent"></i> إدارة العروض</span>
+              <h4>المنتجات المخفّضة</h4>
+              <p>العروض تُدار من نسبة الخصم داخل بيانات الموديل. اضغط تعديل لتغيير العرض.</p>
+            </div>
+          </div>
+          <div id="adminOffersList" class="stack-list admin-offers-list"></div>
         </article>
       </div>
 
