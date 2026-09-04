@@ -1470,7 +1470,7 @@ function applyFilters() {
       if (offers) return offers;
       return toMillis(b.createdAt || b.updatedAt) - toMillis(a.createdAt || a.updatedAt);
     }
-    if (sort === 'modelAsc') return String(a.model || '').localeCompare(String(b.model || ''), 'en', { numeric: true });
+    if (sort === 'modelAsc') return compareModelValues(a.model, b.model);
     if (sort === 'newest') return toMillis(b.createdAt || b.updatedAt) - toMillis(a.createdAt || a.updatedAt);
     const pinDelta = Number(Boolean(b.pinned)) - Number(Boolean(a.pinned));
     if (pinDelta) return pinDelta;
@@ -1893,6 +1893,16 @@ function getModelSeasonKey(model, season) {
   return modelKey && seasonKey ? `${modelKey}::${seasonKey}` : '';
 }
 
+function compareModelValues(a, b) {
+  return String(a || '').trim().localeCompare(String(b || '').trim(), 'en', { numeric: true, sensitivity: 'base' });
+}
+
+function compareProductsByModelSeason(a, b) {
+  const modelDelta = compareModelValues(a?.model, b?.model);
+  if (modelDelta) return modelDelta;
+  return String(a?.season || '').trim().localeCompare(String(b?.season || '').trim(), 'ar', { numeric: true, sensitivity: 'base' });
+}
+
 function clearAdminProductSearch() {
   state.adminProductSearch = '';
   state.adminProductShowAll = false;
@@ -1908,7 +1918,7 @@ function getAdminProductSearchResults() {
   const rawSearch = normalizeAdminProductSearch(state.adminProductSearch || el.adminProductSearchInput?.value || '');
   const modelSearch = normalizeModelForAdminSearch(rawSearch);
   if (!rawSearch) {
-    return state.adminProductShowAll ? products : [];
+    return state.adminProductShowAll ? products.sort(compareProductsByModelSeason) : [];
   }
 
   const ranked = products.map((product) => {
@@ -1922,7 +1932,7 @@ function getAdminProductSearchResults() {
     return { product, rank };
   }).filter((entry) => entry.rank < 99);
 
-  ranked.sort((a, b) => a.rank - b.rank || String(a.product.model || '').localeCompare(String(b.product.model || ''), 'ar', { numeric: true }));
+  ranked.sort((a, b) => a.rank - b.rank || compareModelValues(a.product.model, b.product.model));
   return ranked.map((entry) => entry.product);
 }
 
@@ -2990,7 +3000,7 @@ function sanitizeSheetName(value = '') {
 function getQuickImportPendingProducts() {
   return state.products
     .filter((product) => product.importPending === true)
-    .sort((a, b) => toMillis(b.updatedAt || b.createdAt) - toMillis(a.updatedAt || a.createdAt));
+    .sort(compareProductsByModelSeason);
 }
 
 function renderQuickImportedProducts() {
@@ -3096,15 +3106,19 @@ async function importQuickProductsExcel(event) {
       return true;
     });
 
+    // Always process the Excel import in true model-number order, regardless of row order in the file.
+    // Same model numbers from different seasons stay next to each other and remain distinct records.
+    const orderedRows = [...uniqueRows].sort(compareProductsByModelSeason);
+
     const existingByModelSeason = new Map(
       state.products.map((product) => [getModelSeasonKey(product.model, product.season), product]).filter(([key]) => Boolean(key))
     );
     let created = 0;
     let updated = 0;
 
-    for (let start = 0; start < uniqueRows.length; start += 400) {
+    for (let start = 0; start < orderedRows.length; start += 400) {
       const batch = writeBatch(db);
-      uniqueRows.slice(start, start + 400).forEach((row) => {
+      orderedRows.slice(start, start + 400).forEach((row) => {
         const key = getModelSeasonKey(row.model, row.season);
         const existing = existingByModelSeason.get(key);
         const payload = {
