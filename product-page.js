@@ -22,6 +22,7 @@ const db = getFirestore(app);
 
 const qs = new URLSearchParams(window.location.search);
 const targetModel = (qs.get('model') || '').trim();
+const targetSeason = (qs.get('season') || '').trim();
 const targetId = (qs.get('id') || '').trim();
 
 const el = {
@@ -95,7 +96,10 @@ async function boot() {
   const storefront = storefrontSnap.exists() ? storefrontSnap.data() : {};
   applyBrand(company, storefront);
 
-  const product = products.find((item) => String(item.model || '').trim() === targetModel) || products.find((item) => String(item.id || '').trim() === targetId);
+  const product =
+    (targetId ? products.find((item) => String(item.id || '').trim() === targetId) : null) ||
+    (targetModel && targetSeason ? products.find((item) => String(item.model || '').trim() === targetModel && String(item.season || '').trim() === targetSeason) : null) ||
+    (targetModel ? products.find((item) => String(item.model || '').trim() === targetModel) : null);
   if (!product) {
     showNotFound();
     return;
@@ -398,18 +402,18 @@ function getStorefrontUrl(params = null, hash = '') {
 
 function getProductPageUrl(product) {
   const url = new URL('product.html', SITE_URL);
+  const id = String(product?.id || '').trim();
   const model = String(product?.model || '').trim();
-  if (model) {
-    url.searchParams.set('model', model);
-    return url.href;
-  }
-  url.searchParams.set('id', String(product?.id || '').trim());
+  const season = String(product?.season || '').trim();
+  if (id) url.searchParams.set('id', id);
+  if (model) url.searchParams.set('model', model);
+  if (season) url.searchParams.set('season', season);
   return url.href;
 }
 
 function getProductAnchorId(product) {
-  const raw = String(product?.model || product?.id || product?.name || 'product');
-  return `product-${raw.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-+|-+$/g, '')}`;
+  const raw = [product?.model, product?.season, product?.id ? String(product.id).slice(0, 8) : ''].filter(Boolean).join('-') || product?.name || 'product';
+  return `product-${String(raw).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-+|-+$/g, '')}`;
 }
 
 function normalizeImageUrls(value) {

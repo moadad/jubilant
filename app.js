@@ -1564,13 +1564,12 @@ function getStorefrontUrl(params = null, hash = '') {
 
 function getProductPageUrl(product) {
   const url = new URL('product.html', SITE_URL);
-  const model = String(product?.model || '').trim();
-  if (model) {
-    url.searchParams.set('model', model);
-    return url.href;
-  }
   const id = String(product?.id || '').trim();
-  url.searchParams.set('id', id);
+  const model = String(product?.model || '').trim();
+  const season = String(product?.season || '').trim();
+  if (id) url.searchParams.set('id', id);
+  if (model) url.searchParams.set('model', model);
+  if (season) url.searchParams.set('season', season);
   return url.href;
 }
 
@@ -1584,7 +1583,12 @@ function slugifyArabic(value) {
 }
 
 function getProductAnchorId(product) {
-  const base = product?.model ? `product-${slugifyArabic(product.model)}` : `product-${slugifyArabic(product?.id || product?.name || 'item')}`;
+  const modelPart = slugifyArabic(product?.model || '');
+  const seasonPart = slugifyArabic(product?.season || '');
+  const idPart = slugifyArabic(product?.id || '');
+  const base = modelPart
+    ? `product-${modelPart}${seasonPart ? `-${seasonPart}` : ''}${idPart ? `-${idPart.slice(0, 8)}` : ''}`
+    : `product-${idPart || slugifyArabic(product?.name || 'item')}`;
   return base || 'product-item';
 }
 
@@ -1877,6 +1881,16 @@ function normalizeAdminProductSearch(value) {
 
 function normalizeModelForAdminSearch(value) {
   return String(value || '').trim().toLowerCase().replace(/[\s\-_./\\]+/g, '').replace(/^model/, '');
+}
+
+function normalizeSeasonForIdentity(value) {
+  return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function getModelSeasonKey(model, season) {
+  const modelKey = normalizeModelForAdminSearch(model);
+  const seasonKey = normalizeSeasonForIdentity(season);
+  return modelKey && seasonKey ? `${modelKey}::${seasonKey}` : '';
 }
 
 function clearAdminProductSearch() {
@@ -2362,7 +2376,7 @@ async function handleProductFileUpload(event) {
   const files = [...(event.target.files || [])];
   if (!files.length) return;
   try {
-    const folder = sanitizePathSegment(el.productModelInput.value || 'products');
+    const folder = sanitizePathSegment([el.productModelInput.value, el.productSeasonInput.value].filter(Boolean).join('-') || 'products');
     const urls = await uploadFilesToCloudinary(files, folder);
     state.productImagesDraft = [...state.productImagesDraft, ...urls];
     el.productImageUrlsInput.value = state.productImagesDraft.join('\n');
@@ -2439,14 +2453,18 @@ async function saveProduct() {
   const seriesQtyNumber = getSeriesQtyNumber({ seriesQtyText });
   const priceWholesale = round2(pricePiece * seriesQtyNumber);
   if (!name || !model || rawPricePiece === '' || !seriesQtyText) return showToast('الاسم والموديل وسعر القطعة وكمية السيري مطلوبة');
-  const duplicateModel = state.products.find((item) => String(item.id) !== String(state.editingProductId || '') && normalizeModelForAdminSearch(item.model) === normalizeModelForAdminSearch(model));
+  const modelSeasonKey = getModelSeasonKey(model, season);
+  const duplicateModel = state.products.find((item) =>
+    String(item.id) !== String(state.editingProductId || '') &&
+    getModelSeasonKey(item.model, item.season) === modelSeasonKey
+  );
   if (duplicateModel) {
     state.adminProductSearch = model;
     state.adminProductShowAll = false;
     if (el.adminProductSearchInput) el.adminProductSearchInput.value = model;
     activateAdminTab('productsManagerTab');
     renderAdminProducts();
-    return showToast(`رقم الموديل ${model} موجود بالفعل. افتحه للتعديل بدل إنشاء نسخة مكررة.`);
+    return showToast(`الموديل ${model} موجود بالفعل في موسم ${season}. يمكنك تكرار نفس الرقم فقط في موسم مختلف.`);
   }
   const payload = {
     name,
@@ -3067,26 +3085,28 @@ async function importQuickProductsExcel(event) {
     }
 
     const duplicateRows = [];
-    const seenModels = new Set();
+    const seenModelSeasons = new Set();
     const uniqueRows = parsed.filter((row) => {
-      const key = normalizeModelForAdminSearch(row.model);
-      if (!key || seenModels.has(key)) {
-        duplicateRows.push(row.model);
+      const key = getModelSeasonKey(row.model, row.season);
+      if (!key || seenModelSeasons.has(key)) {
+        duplicateRows.push(`${row.model} - ${row.season}`);
         return false;
       }
-      seenModels.add(key);
+      seenModelSeasons.add(key);
       return true;
     });
 
-    const existingByModel = new Map(state.products.map((product) => [normalizeModelForAdminSearch(product.model), product]));
+    const existingByModelSeason = new Map(
+      state.products.map((product) => [getModelSeasonKey(product.model, product.season), product]).filter(([key]) => Boolean(key))
+    );
     let created = 0;
     let updated = 0;
 
     for (let start = 0; start < uniqueRows.length; start += 400) {
       const batch = writeBatch(db);
       uniqueRows.slice(start, start + 400).forEach((row) => {
-        const key = normalizeModelForAdminSearch(row.model);
-        const existing = existingByModel.get(key);
+        const key = getModelSeasonKey(row.model, row.season);
+        const existing = existingByModelSeason.get(key);
         const payload = {
           name: row.name,
           model: row.model,
@@ -3153,7 +3173,7 @@ async function uploadQuickProductImages(product, event) {
   if (uploadIcon) uploadIcon.className = 'fa-solid fa-spinner fa-spin';
 
   try {
-    const folder = sanitizePathSegment(product.model || 'products');
+    const folder = sanitizePathSegment([product.model, product.season].filter(Boolean).join('-') || 'products');
     const urls = await uploadFilesToCloudinary(files, folder);
     const merged = normalizeImageUrls([...(normalizeImageUrls(product.imageUrls)), ...urls]);
     await updateDoc(doc(db, 'products', product.id), { imageUrls: merged, updatedAt: serverTimestamp() });
