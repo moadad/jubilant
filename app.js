@@ -16,7 +16,7 @@ const ADMIN_EMAILS = ['admin@sestem.local', 'admin@system.local'];
 const CLOUDINARY_CLOUD_NAME = 'dthtzvypx';
 const CART_STORAGE_KEY = 'joodkids_cart_wholesale_piece_v3_fast';
 const PRODUCT_PAGE_SIZE = 24;
-const APP_SW_VERSION = 'joodkids-store-v36';
+const APP_SW_VERSION = 'joodkids-store-v37';
 const APP_ROOT_URL = new URL('./', window.location.href);
 const SITE_URL = APP_ROOT_URL.href;
 const OPEN_CART_FLAG_KEY = 'joodkids_open_cart_after_nav';
@@ -319,6 +319,10 @@ const el = {
   exportOrdersBtn: id('exportOrdersBtn'),
   exportProductsBtn: id('exportProductsBtn'),
   excelImportInput: id('excelImportInput'),
+  quickExcelImportInput: id('quickExcelImportInput'),
+  quickImportStatus: id('quickImportStatus'),
+  quickImportedProductsList: id('quickImportedProductsList'),
+  quickImportPendingCount: id('quickImportPendingCount'),
   deleteProductsBtn: id('deleteProductsBtn'),
   deleteOrdersBtn: id('deleteOrdersBtn'),
   deleteAllDataBtn: id('deleteAllDataBtn'),
@@ -527,6 +531,7 @@ function bindUI() {
   el.exportProductsBtn.addEventListener('click', exportProductsExcel);
   el.exportOrdersBtn.addEventListener('click', exportOrdersExcel);
   el.excelImportInput.addEventListener('change', importProductsExcel);
+  el.quickExcelImportInput?.addEventListener('change', importQuickProductsExcel);
   el.deleteProductsBtn.addEventListener('click', () => deleteCollectionDocs('products', 'حذف المنتجات'));
   el.deleteOrdersBtn.addEventListener('click', () => deleteCollectionDocs('orders', 'حذف الطلبات'));
   el.deleteAllDataBtn.addEventListener('click', deleteAllData);
@@ -592,6 +597,7 @@ function activateAdminTab(tabId) {
   el.adminTabs.forEach((item) => item.classList.toggle('active', item.dataset.tab === tabId));
   el.tabsPanels.forEach((panel) => panel.classList.toggle('active', panel.id === tabId));
   if (tabId === 'productsManagerTab') renderAdminProducts();
+  if (tabId === 'quickImportTab') renderQuickImportedProducts();
   if (tabId === 'offersAdminTab') renderAdminOffers();
 }
 
@@ -683,6 +689,7 @@ function renderEverything() {
   renderCategoryManager();
   renderAdminForms();
   renderAdminProducts();
+  renderQuickImportedProducts();
   renderAdminOffers();
   renderAdminOrders();
   applyFilters();
@@ -2458,6 +2465,7 @@ async function saveProduct() {
     description: el.productDescriptionInput.value.trim(),
     codeCategory: deriveCodeCategory(model),
     imageUrls: normalizeImageUrls(state.productImagesDraft),
+    importPending: false,
     updatedAt: serverTimestamp(),
   };
   try {
@@ -2958,6 +2966,208 @@ function exportWorkbook(sheets, filename) {
 
 function sanitizeSheetName(value = '') {
   return String(value || 'sheet').replace(/[\/?*\[\]:]/g, '_').slice(0, 31) || 'sheet';
+}
+
+
+function getQuickImportPendingProducts() {
+  return state.products
+    .filter((product) => product.importPending === true)
+    .sort((a, b) => toMillis(b.updatedAt || b.createdAt) - toMillis(a.updatedAt || a.createdAt));
+}
+
+function renderQuickImportedProducts() {
+  if (!el.quickImportedProductsList) return;
+  const products = getQuickImportPendingProducts();
+  if (el.quickImportPendingCount) el.quickImportPendingCount.textContent = String(products.length);
+  el.quickImportedProductsList.innerHTML = '';
+
+  if (!products.length) {
+    el.quickImportedProductsList.innerHTML = `
+      <div class="quick-import-empty">
+        <i class="fa-solid fa-circle-check"></i>
+        <strong>لا توجد موديلات بانتظار الاستكمال</strong>
+        <span>بعد استيراد ملف Excel ستظهر الموديلات هنا لرفع الصور واستكمال البيانات.</span>
+      </div>`;
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+  products.forEach((product) => {
+    const images = normalizeImageUrls(product.imageUrls);
+    const imageUrl = images[0] || placeholderImage(`موديل ${product.model || ''}`);
+    const item = document.createElement('div');
+    item.className = 'quick-import-item';
+    item.innerHTML = `
+      <img class="quick-import-thumb" src="${escapeAttr(getMiniImageUrl(imageUrl))}" alt="موديل ${escapeAttr(product.model || '')}" />
+      <div class="quick-import-item-body">
+        <div class="quick-import-item-head">
+          <strong>موديل ${escapeHTML(product.model || '-')}</strong>
+          <span class="quick-import-image-state ${images.length ? 'has-image' : 'needs-image'}"><i class="fa-solid ${images.length ? 'fa-image' : 'fa-camera'}"></i>${images.length ? `${images.length} صورة` : 'بدون صورة'}</span>
+        </div>
+        <h5>${escapeHTML(product.name || 'بدون اسم')}</h5>
+        <div class="quick-import-meta">
+          <span><b>السعر:</b> ${formatCurrency(getPiecePrice(product))}</span>
+          <span><b>السيري:</b> ${escapeHTML(getSeriesQtyText(product))}</span>
+          <span><b>المقاسات:</b> ${escapeHTML(product.sizes || '—')}</span>
+          <span><b>الموسم:</b> ${escapeHTML(product.season || '—')}</span>
+        </div>
+      </div>
+      <div class="quick-import-item-actions">
+        <label class="ghost-btn quick-image-upload-btn">
+          <input type="file" accept="image/*" multiple hidden data-quick-image-input="${escapeAttr(product.id)}" />
+          <i class="fa-solid fa-cloud-arrow-up"></i><span>${images.length ? 'إضافة صور' : 'رفع صورة'}</span>
+        </label>
+        <button type="button" class="primary-btn" data-quick-edit="${escapeAttr(product.id)}"><i class="fa-solid fa-pen-to-square"></i><span>استكمال البيانات</span></button>
+      </div>`;
+
+    const input = item.querySelector('[data-quick-image-input]');
+    input?.addEventListener('change', (event) => uploadQuickProductImages(product, event));
+    item.querySelector('[data-quick-edit]')?.addEventListener('click', () => populateProductForm(product));
+    fragment.appendChild(item);
+  });
+  el.quickImportedProductsList.appendChild(fragment);
+}
+
+async function importQuickProductsExcel(event) {
+  if (!(await ensureAdminSession())) return;
+  const input = event.currentTarget || el.quickExcelImportInput;
+  const file = input?.files?.[0];
+  if (!file) return;
+  if (el.quickImportStatus) el.quickImportStatus.textContent = 'جارٍ قراءة الملف والتحقق من الموديلات...';
+
+  try {
+    const rows = await readExcelRows(file);
+    if (!rows.length) {
+      if (el.quickImportStatus) el.quickImportStatus.textContent = 'الملف فارغ.';
+      return showToast('الملف فارغ');
+    }
+
+    const parsed = [];
+    const errors = [];
+    rows.forEach((row, index) => {
+      const model = String(firstValue(row, ['رقم الموديل', 'model', 'موديل', 'model number', 'modelNumber']) || '').trim();
+      const name = String(firstValue(row, ['اسم المنتج', 'name', 'productName', 'product name']) || '').trim();
+      const priceRaw = firstValue(row, ['السعر', 'سعر القطعة', 'price', 'pricePiece', 'piecePrice']);
+      const seriesQtyText = String(firstValue(row, ['كمية السيري', 'seriesQtyText', 'seriesQty', 'السيري', 'minQty']) || '').trim();
+      const sizes = String(firstValue(row, ['المقاسات', 'sizes', 'size']) || '').trim();
+      const season = String(firstValue(row, ['الموسم', 'season']) || '').trim();
+      const pricePiece = Number(priceRaw);
+      const seriesQtyNumber = getSeriesQtyNumber({ seriesQtyText });
+
+      if (!model || !name || String(priceRaw).trim() === '' || !Number.isFinite(pricePiece) || pricePiece < 0 || !seriesQtyText || !sizes || !season) {
+        errors.push(index + 2);
+        return;
+      }
+      parsed.push({ model, name, pricePiece: round2(pricePiece), priceWholesale: round2(pricePiece * seriesQtyNumber), seriesQtyText, sizes, season });
+    });
+
+    if (!parsed.length) {
+      if (el.quickImportStatus) el.quickImportStatus.textContent = 'لم يتم العثور على صفوف صحيحة. راجع أسماء الأعمدة والبيانات.';
+      return showToast('لا توجد صفوف صالحة للاستيراد');
+    }
+
+    const duplicateRows = [];
+    const seenModels = new Set();
+    const uniqueRows = parsed.filter((row) => {
+      const key = normalizeModelForAdminSearch(row.model);
+      if (!key || seenModels.has(key)) {
+        duplicateRows.push(row.model);
+        return false;
+      }
+      seenModels.add(key);
+      return true;
+    });
+
+    const existingByModel = new Map(state.products.map((product) => [normalizeModelForAdminSearch(product.model), product]));
+    let created = 0;
+    let updated = 0;
+
+    for (let start = 0; start < uniqueRows.length; start += 400) {
+      const batch = writeBatch(db);
+      uniqueRows.slice(start, start + 400).forEach((row) => {
+        const key = normalizeModelForAdminSearch(row.model);
+        const existing = existingByModel.get(key);
+        const payload = {
+          name: row.name,
+          model: row.model,
+          pricePiece: row.pricePiece,
+          priceWholesale: row.priceWholesale,
+          season: row.season,
+          sizes: row.sizes,
+          seriesQtyText: row.seriesQtyText,
+          codeCategory: deriveCodeCategory(row.model),
+          importPending: true,
+          updatedAt: serverTimestamp(),
+        };
+        if (existing) {
+          batch.set(doc(db, 'products', existing.id), payload, { merge: true });
+          updated += 1;
+        } else {
+          const ref = doc(collection(db, 'products'));
+          batch.set(ref, {
+            ...payload,
+            discountPercent: 0,
+            subCategory: '',
+            badgeText: '',
+            pinned: false,
+            visible: false,
+            stockStatus: 'available',
+            description: '',
+            imageUrls: [],
+            createdAt: serverTimestamp(),
+          });
+          created += 1;
+        }
+      });
+      await batch.commit();
+    }
+
+    const skipped = errors.length + duplicateRows.length;
+    if (el.quickImportStatus) {
+      el.quickImportStatus.textContent = `تم الاستيراد: ${created} جديد، ${updated} تم تحديثه${skipped ? `، ${skipped} صف تم تخطيه` : ''}. ارفع الصور ثم استكمل البيانات.`;
+    }
+    activateAdminTab('quickImportTab');
+    showToast(`تم تجهيز ${created + updated} موديل للاستكمال`);
+  } catch (error) {
+    console.error(error);
+    if (el.quickImportStatus) el.quickImportStatus.textContent = 'تعذر استيراد الملف. تأكد أنه Excel/CSV وأن أسماء الأعمدة مطابقة للقالب.';
+    showToast('تعذر استيراد ملف الموديلات');
+  } finally {
+    if (input) input.value = '';
+  }
+}
+
+async function uploadQuickProductImages(product, event) {
+  if (!(await ensureAdminSession())) return;
+  const input = event.currentTarget;
+  const files = [...(input?.files || [])];
+  if (!files.length) return;
+  const card = input.closest('.quick-import-item');
+  const uploadLabel = input.closest('.quick-image-upload-btn');
+  const uploadText = uploadLabel?.querySelector('span');
+  const uploadIcon = uploadLabel?.querySelector('i');
+  const originalText = uploadText?.textContent || '';
+  const originalIconClass = uploadIcon?.className || '';
+  if (uploadLabel) uploadLabel.classList.add('is-busy');
+  if (uploadText) uploadText.textContent = 'جارٍ رفع الصورة';
+  if (uploadIcon) uploadIcon.className = 'fa-solid fa-spinner fa-spin';
+
+  try {
+    const folder = sanitizePathSegment(product.model || 'products');
+    const urls = await uploadFilesToCloudinary(files, folder);
+    const merged = normalizeImageUrls([...(normalizeImageUrls(product.imageUrls)), ...urls]);
+    await updateDoc(doc(db, 'products', product.id), { imageUrls: merged, updatedAt: serverTimestamp() });
+    card?.classList.add('image-uploaded');
+    showToast(`تم رفع صورة موديل ${product.model || ''}`);
+  } catch (error) {
+    console.error(error);
+    showToast(getFriendlyUploadError(error));
+  } finally {
+    if (input) input.value = '';
+    if (uploadLabel) uploadLabel.classList.remove('is-busy');
+    if (uploadText) uploadText.textContent = originalText;
+    if (uploadIcon) uploadIcon.className = originalIconClass;
+  }
 }
 
 async function importProductsExcel(event) {

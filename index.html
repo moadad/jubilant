@@ -389,6 +389,7 @@
         <button class="tab-btn" data-tab="companyTab"><i class="fa-solid fa-building"></i><span>الشركة</span></button>
         <button class="tab-btn" data-tab="categoryTab"><i class="fa-solid fa-tags"></i><span>التصنيفات</span></button>
         <button class="tab-btn" data-tab="productAddTab"><i class="fa-solid fa-circle-plus"></i><span>إضافة منتج</span></button>
+        <button class="tab-btn" data-tab="quickImportTab"><i class="fa-solid fa-file-circle-plus"></i><span>استيراد موديلات</span></button>
         <button class="tab-btn" data-tab="productsManagerTab"><i class="fa-solid fa-shirt"></i><span>المنتجات</span></button>
         <button class="tab-btn" data-tab="offersAdminTab"><i class="fa-solid fa-percent"></i><span>العروض</span></button>
         <button class="tab-btn" data-tab="ordersTab"><i class="fa-solid fa-bag-shopping"></i><span>الطلبات</span></button>
@@ -511,6 +512,44 @@
           </div>
           <div id="uploadStatus" class="status-line"></div>
           <div id="productImagesPreview" class="preview-grid"></div>
+        </article>
+      </div>
+
+      <div id="quickImportTab" class="tab-panel">
+        <article class="panel-card quick-import-card">
+          <div class="admin-section-heading">
+            <div>
+              <span class="admin-eyebrow"><i class="fa-solid fa-file-excel"></i> إدخال سريع</span>
+              <h4>استيراد الموديلات من Excel</h4>
+              <p>استورد البيانات الأساسية أولًا، ثم ارفع صورة الموديل واستكمل باقي البيانات من زر التعديل.</p>
+            </div>
+          </div>
+
+          <div class="quick-import-columns" aria-label="أعمدة ملف الاستيراد">
+            <span>رقم الموديل</span><span>اسم المنتج</span><span>السعر</span><span>كمية السيري</span><span>المقاسات</span><span>الموسم</span>
+          </div>
+
+          <div class="quick-import-actions">
+            <label class="file-btn quick-import-file-btn">
+              <input id="quickExcelImportInput" type="file" accept=".xlsx,.xls,.csv" hidden />
+              <span class="primary-btn"><i class="fa-solid fa-file-arrow-up"></i><span>استيراد ملف Excel</span></span>
+            </label>
+            <a class="ghost-btn" href="quick-products-template.csv" download><i class="fa-solid fa-file-arrow-down"></i><span>تحميل قالب جاهز</span></a>
+          </div>
+          <div id="quickImportStatus" class="status-line quick-import-status">لم يتم اختيار ملف بعد.</div>
+          <div class="quick-import-note"><i class="fa-solid fa-shield-halved"></i><span>الموديلات الجديدة تُحفظ مخفية مؤقتًا حتى تستكمل بياناتها، لذلك لن يظهر منتج ناقص للعميل.</span></div>
+        </article>
+
+        <article class="panel-card quick-import-queue-card">
+          <div class="admin-section-heading">
+            <div>
+              <span class="admin-eyebrow"><i class="fa-solid fa-list-check"></i> قيد الاستكمال</span>
+              <h4>الموديلات المستوردة التي تحتاج استكمال</h4>
+              <p>ارفع صورة أو أكثر مباشرة، ثم افتح التعديل لإضافة التصنيف والوصف والخصم وحالة التوفر وباقي البيانات.</p>
+            </div>
+            <strong id="quickImportPendingCount" class="quick-import-count">0</strong>
+          </div>
+          <div id="quickImportedProductsList" class="stack-list quick-import-list"></div>
         </article>
       </div>
 
