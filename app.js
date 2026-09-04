@@ -1092,6 +1092,14 @@ function activateCatalogProducts(season = '', category = 'all', options = {}) {
   state.filter.season = safeSeason || 'all';
   state.filter.category = safeCategory;
   state.filter.subCategory = safeSubCategory;
+
+  // داخل أي تصنيف يكون العرض الافتراضي متسلسلاً حسب رقم الموديل.
+  // نحافظ على اختيار المستخدم إذا غيّر الترتيب يدويًا إلى السعر/الأحدث/العروض.
+  if (safeCategory !== 'all' && (!preserveSort || state.filter.sort === 'featured')) {
+    state.filter.sort = 'modelAsc';
+    if (el.sortFilter) el.sortFilter.value = 'modelAsc';
+  }
+
   resetRenderedProducts();
   if (closeAfter) closeDrawers();
   applyFilters();
@@ -4126,10 +4134,11 @@ function clearFilters() {
   const season = state.catalog.selectedSeason || '';
   const category = state.catalog.step === 'products' ? (state.catalog.selectedCategory || 'all') : 'all';
   const subCategory = state.catalog.step === 'products' ? (state.catalog.selectedSubCategory || 'all') : 'all';
-  state.filter = { search: '', category: category || 'all', subCategory: subCategory || 'all', season: season || 'all', offersOnly: false, sort: 'featured' };
+  const defaultSort = category !== 'all' ? 'modelAsc' : 'featured';
+  state.filter = { search: '', category: category || 'all', subCategory: subCategory || 'all', season: season || 'all', offersOnly: false, sort: defaultSort };
   el.searchInput.value = '';
   hideSearchSuggestions();
-  el.sortFilter.value = 'featured';
+  el.sortFilter.value = defaultSort;
   resetRenderedProducts();
   applyFilters();
 }

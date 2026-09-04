@@ -1,4 +1,4 @@
-const APP_VERSION = 'joodkids-store-v40';
+const APP_VERSION = 'joodkids-store-v41';
 const STATIC_CACHE = `${APP_VERSION}-static`;
 const RUNTIME_CACHE = `${APP_VERSION}-runtime`;
 const CORE_ASSETS = [
