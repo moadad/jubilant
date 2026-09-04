@@ -4176,7 +4176,26 @@ function parseMaybeArray(value) {
 const normalizeImageUrls = (list) => [...new Set((Array.isArray(list) ? list : [list]).flat().map((item) => String(item || '').trim()).filter(Boolean))];
 const textareaLines = (value) => String(value || '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
 const parseCommaList = (value) => [...new Set(String(value || '').split(',').map((item) => item.trim()).filter(Boolean))];
-const firstValue = (row, keys) => { for (const key of keys) { if (Object.prototype.hasOwnProperty.call(row, key) && row[key] !== '') return row[key]; } return ''; };
+function normalizeExcelHeader(value) {
+  return String(value ?? '')
+    .replace(/^\uFEFF/, '')
+    .replace(/\u00A0/g, ' ')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
+}
+
+const firstValue = (row, keys) => {
+  for (const key of keys) {
+    if (Object.prototype.hasOwnProperty.call(row, key) && String(row[key] ?? '').trim() !== '') return row[key];
+  }
+  const normalized = new Map(Object.entries(row || {}).map(([key, value]) => [normalizeExcelHeader(key), value]));
+  for (const key of keys) {
+    const value = normalized.get(normalizeExcelHeader(key));
+    if (String(value ?? '').trim() !== '') return value;
+  }
+  return '';
+};
 const toBool = (value) => ['true', '1', 'yes', 'نعم', 'y'].includes(String(value).trim().toLowerCase());
 const initials = (text) => String(text || 'JK').trim().split(/\s+/).slice(0, 2).map((item) => item[0] || '').join('').toUpperCase() || 'JK';
 
@@ -4254,7 +4273,17 @@ const saveLocalJSON = (key, value) => localStorage.setItem(key, JSON.stringify(v
 function debounce(fn, wait = 120) { let timer = 0; return (...args) => { clearTimeout(timer); timer = window.setTimeout(() => fn(...args), wait); }; }
 function showToast(message) { el.toast.textContent = message; el.toast.classList.add('show'); clearTimeout(showToast.timer); showToast.timer = setTimeout(() => el.toast.classList.remove('show'), 2600); }
 function guardAdmin() { if (state.isAdmin || isAllowedAdminUser(auth.currentUser)) return true; showToast('سجل الدخول أولاً'); openDrawer('admin'); return false; }
-async function readExcelRows(file) { if (!window.XLSX) throw new Error('SheetJS not loaded'); const buffer = await file.arrayBuffer(); const workbook = XLSX.read(buffer, { type: 'array' }); return XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: '' }); }
+async function readExcelRows(file) {
+  if (!window.XLSX) throw new Error('SheetJS not loaded');
+  const buffer = await file.arrayBuffer();
+  const workbook = XLSX.read(buffer, { type: 'array' });
+  const firstSheetName = workbook.SheetNames?.[0];
+  if (!firstSheetName) return [];
+  const rows = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheetName], { defval: '' });
+  return rows.map((row) => Object.fromEntries(
+    Object.entries(row).map(([key, value]) => [String(key).replace(/^\uFEFF/, '').replace(/\u00A0/g, ' ').trim(), value])
+  ));
+}
 function convertRowsToCsv(rows) { if (!rows.length) return 'info\nلا توجد بيانات'; const headers = [...new Set(rows.flatMap((row) => Object.keys(row)))]; return [headers.join(','), ...rows.map((row) => headers.map((key) => escapeCsv(row[key])).join(','))].join('\n'); }
 function escapeCsv(value) { const text = String(value ?? ''); return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text; }
 function downloadBlob(blob, filename) { const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = filename; document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(link.href); }
